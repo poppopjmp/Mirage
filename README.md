@@ -1,3 +1,49 @@
+# Mirage
+
+Mirage is a next-generation OSINT platform based on SpiderFoot, rebuilt as a cloud-native microservices architecture.
+
+## Overview
+
+Mirage provides advanced open-source intelligence gathering, correlation, and analysis capabilities through a modern, scalable infrastructure. It extends SpiderFoot's capabilities with real-time monitoring, enhanced collaboration features, and advanced analytics.
+
+## Key Features
+
+- OSINT data collection from 200+ sources
+- Extensible module system for intelligence gathering
+- Advanced scan management and orchestration
+- Automated data correlation and analysis
+- Interactive visualization of relationships
+- Team collaboration and shared investigations
+- Real-time monitoring and alerts
+- ML-based pattern recognition
+- Custom automated workflows
+- Multi-tenant architecture
+
+## Architecture
+
+Mirage follows a microservices architecture with the following key components:
+
+- Auth Service
+- User Management Service
+- Scan Orchestration Service
+- Module Registry Service
+- Data Collection Service
+- Data Storage Service
+- Correlation Engine Service
+- Visualization Service
+- Reporting Service
+- Notification Service
+- API Gateway
+- Integration Service
+- Configuration Service
+- Discovery Service
+
+See [architecture.md](architecture.md) for detailed architecture information.
+
+## Getting Started
+
+Documentation for setup, configuration, and development is available in the [docs](docs) directory.
+
 ### 1. **Define the Scope and Requirements**
    - **Identify Features**: List all the features of SpiderFoot that you want to include in Mirage. Determine if there are any new features you want to add.
    - **Microservices Architecture**: Decide how you want to break down the application into microservices. Each service should have a single responsibility.
@@ -8,8 +54,8 @@
    - **API Gateway**: Consider implementing an API gateway to manage requests to your microservices.
 
 ### 3. **Choose Rust Frameworks and Libraries**
-   - **Web Framework**: Consider using frameworks like Actix, Rocket, or Warp for building your web services.
-   - **Database Interaction**: Use libraries like Diesel or SQLx for database interactions.
+   - **Web Framework**: Consider using frameworks Rocket for building your web services.
+   - **Database Interaction**: Use libraries like  SQLx for database interactions.
    - **Asynchronous Programming**: Leverage Rust's async capabilities with libraries like Tokio or async-std for handling concurrent requests.
 
 ### 4. **Set Up Your Development Environment**
