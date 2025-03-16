@@ -1,4 +1,4 @@
-hi# Mirage
+# Mirage
 
 Mirage is a next-generation OSINT platform based on SpiderFoot, rebuilt as a cloud-native microservices architecture.
 
@@ -99,3 +99,93 @@ Documentation for setup, configuration, and development is available in the [doc
 - **Analysis Service**: Analyzes the collected data and generates insights.
 - **User Management Service**: Handles user authentication and management.
 - **Reporting Service**: Generates reports based on the analyzed data.
+
+## Deployment and Testing
+
+### Deploying Microservices
+
+Each microservice in Mirage is containerized using Docker. To deploy a microservice, follow these steps:
+
+1. Navigate to the service directory:
+   ```bash
+   cd services/<service-name>
+   ```
+
+2. Build the Docker image:
+   ```bash
+   docker build -t mirage/<service-name>:latest .
+   ```
+
+3. Run the Docker container:
+   ```bash
+   docker run -d -p <host-port>:<container-port> mirage/<service-name>:latest
+   ```
+
+### Testing Microservices
+
+Each microservice includes unit tests and integration tests to ensure reliability. To run the tests, follow these steps:
+
+1. Navigate to the service directory:
+   ```bash
+   cd services/<service-name>
+   ```
+
+2. Run the tests using Cargo:
+   ```bash
+   cargo test
+   ```
+
+## Detailed Documentation
+
+For detailed documentation on each microservice, including API specifications, configuration options, and deployment instructions, refer to the following links:
+
+- [Auth Service](docs/services/auth-service.md)
+- [User Management Service](docs/services/user-management-service.md)
+- [Scan Orchestration Service](docs/services/scan-orchestration-service.md)
+- [Module Registry Service](docs/services/module-registry-service.md)
+- [Data Collection Service](docs/services/data-collection-service.md)
+- [Data Storage Service](docs/services/data-storage-service.md)
+- [Correlation Engine Service](docs/services/correlation-engine-service.md)
+- [Visualization Service](docs/services/visualization-service.md)
+- [Reporting Service](docs/services/reporting-service.md)
+- [Notification Service](docs/services/notification-service.md)
+- [API Gateway](docs/services/api-gateway.md)
+- [Integration Service](docs/services/integration-service.md)
+- [Configuration Service](docs/services/configuration-service.md)
+- [Discovery Service](docs/services/discovery-service.md)
+
+## Unit Tests and Integration Tests
+
+Each microservice includes unit tests and integration tests to ensure reliability. To run the tests, follow these steps:
+
+1. Navigate to the service directory:
+   ```bash
+   cd services/<service-name>
+   ```
+
+2. Run the tests using Cargo:
+   ```bash
+   cargo test
+   ```
+
+## Dockerfiles and Containerization
+
+Each microservice in Mirage is containerized using Docker. Dockerfiles for all services are present, ensuring each service is containerized and deployable. To build and run a Docker container for a service, follow these steps:
+
+1. Navigate to the service directory:
+   ```bash
+   cd services/<service-name>
+   ```
+
+2. Build the Docker image:
+   ```bash
+   docker build -t mirage/<service-name>:latest .
+   ```
+
+3. Run the Docker container:
+   ```bash
+   docker run -d -p <host-port>:<container-port> mirage/<service-name>:latest
+   ```
+
+For more information on Dockerfiles and containerization, refer to the [Docker documentation](https://docs.docker.com/).
+
