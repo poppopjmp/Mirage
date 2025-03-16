@@ -1,4 +1,4 @@
-# Mirage
+hi# Mirage
 
 Mirage is a next-generation OSINT platform based on SpiderFoot, rebuilt as a cloud-native microservices architecture.
 
@@ -99,6 +99,3 @@ Documentation for setup, configuration, and development is available in the [doc
 - **Analysis Service**: Analyzes the collected data and generates insights.
 - **User Management Service**: Handles user authentication and management.
 - **Reporting Service**: Generates reports based on the analyzed data.
-
-### Conclusion
-Transitioning to a microservices architecture in Rust is a significant undertaking, but with careful planning and execution, it can lead to a robust and efficient application. Good luck with your project, Mirage! If you have any specific questions or need further assistance, feel free to ask.
