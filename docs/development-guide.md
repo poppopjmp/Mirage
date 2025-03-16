@@ -170,3 +170,167 @@ Our CI/CD pipeline includes:
 - Use prepared statements for database queries
 - Enable CORS only for trusted domains
 - Implement rate limiting for APIs
+
+## New Microservices
+
+### Auth Service
+
+- **Technology**: Rust + Actix-Web
+- **Features**:
+  - JWT token generation and validation
+  - OAuth/OIDC integration
+  - Rate limiting middleware
+- **Testing**: Unit tests for authentication endpoints
+
+### User Management Service
+
+- **Technology**: Rust + Rocket
+- **Features**:
+  - User CRUD operations
+  - Role and permission management
+  - Team management functionality
+- **Testing**: Unit tests for user management endpoints
+
+### Scan Orchestration Service
+
+- **Technology**: Rust + Tokio
+- **Features**:
+  - Scan lifecycle management logic
+  - Job scheduling and distribution logic
+  - Scan progress tracking
+- **Testing**: Unit tests for scan orchestration endpoints
+
+### Module Registry Service
+
+- **Technology**: Rust + Actix-Web
+- **Features**:
+  - Module registration and discovery logic
+  - Module configuration management
+  - Module dependency resolution
+- **Testing**: Unit tests for module registry endpoints
+
+### Data Collection Service
+
+- **Technology**: Rust + Hyper
+- **Features**:
+  - Data collection module execution logic
+  - Rate limiting for external API calls
+  - Result normalization logic
+- **Testing**: Unit tests for data collection endpoints
+
+### Data Storage Service
+
+- **Technology**: Rust + Actix-Web
+- **Features**:
+  - Persistent storage logic
+  - Data versioning logic
+  - Query interface for other services
+- **Testing**: Unit tests for data storage endpoints
+
+### Correlation Engine Service
+
+- **Technology**: Rust + rayon
+- **Features**:
+  - Entity relationship analysis logic
+  - Pattern identification logic
+  - Data enrichment logic
+- **Testing**: Unit tests for correlation engine endpoints
+
+### Visualization Service
+
+- **Technology**: Rust + WebAssembly
+- **Features**:
+  - Network graph generation logic
+  - Interactive visualization components
+  - Visual filtering and search logic
+- **Testing**: Unit tests for visualization endpoints
+
+### Reporting Service
+
+- **Technology**: Rust + Actix-Web
+- **Features**:
+  - Report template management logic
+  - Custom report generation logic
+  - Scheduled reporting logic
+- **Testing**: Unit tests for reporting endpoints
+
+### Notification Service
+
+- **Technology**: Rust + Actix-Web
+- **Features**:
+  - Alert generation logic
+  - Notification delivery logic
+  - Notification preferences management
+- **Testing**: Unit tests for notification endpoints
+
+### Integration Service
+
+- **Technology**: Rust + Actix-Web
+- **Features**:
+  - Third-party tool integration logic
+  - API connectors for external systems
+  - Data import/export capabilities
+- **Testing**: Unit tests for integration endpoints
+
+### Configuration Service
+
+- **Technology**: Rust + Actix-Web
+- **Features**:
+  - Centralized configuration management logic
+  - Dynamic configuration updates logic
+  - Environment-specific settings logic
+- **Testing**: Unit tests for configuration endpoints
+
+### Discovery Service
+
+- **Technology**: Rust + Actix-Web
+- **Features**:
+  - Service registration logic
+  - Service health monitoring logic
+  - Load balancing logic
+- **Testing**: Unit tests for discovery endpoints
+
+## Running Unit Tests and Integration Tests
+
+To run unit tests and integration tests for each microservice, follow these steps:
+
+1. Navigate to the service directory:
+   ```bash
+   cd services/<service-name>
+   ```
+
+2. Run the tests using Cargo:
+   ```bash
+   cargo test
+   ```
+
+## Building and Deploying Docker Containers
+
+To build and deploy Docker containers for each microservice, follow these steps:
+
+1. Navigate to the service directory:
+   ```bash
+   cd services/<service-name>
+   ```
+
+2. Build the Docker image:
+   ```bash
+   docker build -t mirage/<service-name>:latest .
+   ```
+
+3. Run the Docker container:
+   ```bash
+   docker run -d -p <host-port>:<container-port> mirage/<service-name>:latest
+   ```
+
+## CI/CD Pipeline
+
+Our CI/CD pipeline includes:
+
+1. **Build**: Compile code and build containers
+2. **Test**: Run unit and integration tests
+3. **Analyze**: Static code analysis and security scanning
+4. **Package**: Create deployable artifacts
+5. **Deploy**: Deploy to staging environment
+6. **Validate**: Run system and acceptance tests
+7. **Release**: Deploy to production

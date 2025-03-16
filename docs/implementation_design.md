@@ -43,8 +43,22 @@ This document provides a detailed implementation design for the Mirage OSINT pla
   - `PUT /scans/{id}/pause` - Pause scan
   - `PUT /scans/{id}/resume` - Resume scan
 
+### Module Registry Service
+- **Technology Stack**: Rust + Actix-Web
+- **Database**: PostgreSQL
+- **Responsibilities**:
+  - Module registration and discovery
+  - Module configuration management
+  - Module dependency resolution
+- **Key APIs**:
+  - `POST /modules` - Register new module
+  - `GET /modules` - List all modules
+  - `GET /modules/{id}` - Get module details
+  - `PUT /modules/{id}` - Update module
+  - `DELETE /modules/{id}` - Delete module
+
 ### Data Collection Service
-- **Technology Stack**: Rust + Tokio + Hyper
+- **Technology Stack**: Rust + Hyper
 - **Database**: MongoDB
 - **Responsibilities**:
   - Execute OSINT modules against targets
@@ -54,6 +68,19 @@ This document provides a detailed implementation design for the Mirage OSINT pla
   - `POST /collection/execute` - Execute data collection module
   - `GET /collection/modules` - List available modules
   - `GET /collection/results/{id}` - Get collection results
+
+### Data Storage Service
+- **Technology Stack**: Rust + Actix-Web
+- **Database**: PostgreSQL
+- **Responsibilities**:
+  - Persistent storage of all collected intelligence
+  - Data versioning
+  - Query interface for other services
+- **Key APIs**:
+  - `POST /data` - Store data
+  - `GET /data/{id}` - Retrieve data
+  - `PUT /data/{id}` - Update data
+  - `DELETE /data/{id}` - Delete data
 
 ### Correlation Engine Service
 - **Technology Stack**: Rust + rayon
@@ -76,6 +103,71 @@ This document provides a detailed implementation design for the Mirage OSINT pla
 - **Key APIs**:
   - `GET /visualizations/{id}` - Get visualization
   - `POST /visualizations/generate` - Generate visualization
+
+### Reporting Service
+- **Technology Stack**: Rust + Actix-Web
+- **Database**: PostgreSQL
+- **Responsibilities**:
+  - Report template management
+  - Custom report generation
+  - Scheduled reporting
+- **Key APIs**:
+  - `POST /reports` - Create report
+  - `GET /reports/{id}` - Get report
+  - `PUT /reports/{id}` - Update report
+  - `DELETE /reports/{id}` - Delete report
+
+### Notification Service
+- **Technology Stack**: Rust + Actix-Web
+- **Database**: PostgreSQL
+- **Responsibilities**:
+  - Alert generation based on configurable triggers
+  - Notification delivery (email, SMS, webhooks)
+  - Notification preferences
+- **Key APIs**:
+  - `POST /notifications` - Create notification
+  - `GET /notifications/{id}` - Get notification
+  - `PUT /notifications/{id}` - Update notification
+  - `DELETE /notifications/{id}` - Delete notification
+
+### Integration Service
+- **Technology Stack**: Rust + Actix-Web
+- **Database**: PostgreSQL
+- **Responsibilities**:
+  - Third-party tool integration
+  - API connectors for external systems
+  - Data import/export capabilities
+- **Key APIs**:
+  - `POST /integrations` - Create integration
+  - `GET /integrations/{id}` - Get integration
+  - `PUT /integrations/{id}` - Update integration
+  - `DELETE /integrations/{id}` - Delete integration
+
+### Configuration Service
+- **Technology Stack**: Rust + Actix-Web
+- **Database**: PostgreSQL
+- **Responsibilities**:
+  - Centralized configuration management
+  - Dynamic configuration updates
+  - Environment-specific settings
+- **Key APIs**:
+  - `POST /configurations` - Create configuration
+  - `GET /configurations/{id}` - Get configuration
+  - `PUT /configurations/{id}` - Update configuration
+  - `DELETE /configurations/{id}` - Delete configuration
+
+### Discovery Service
+- **Technology Stack**: Rust + Actix-Web
+- **Database**: PostgreSQL
+- **Responsibilities**:
+  - Service registration
+  - Service health monitoring
+  - Load balancing
+- **Key APIs**:
+  - `POST /discovery` - Register service
+  - `GET /discovery/{id}` - Get service details
+  - `PUT /discovery/{id}` - Update service
+  - `DELETE /discovery/{id}` - Deregister service
 
 ## 2. Data Models
 
