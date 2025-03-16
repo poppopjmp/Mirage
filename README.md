@@ -49,9 +49,21 @@ Documentation for setup, configuration, and development is available in the [doc
    - **Microservices Architecture**: Decide how you want to break down the application into microservices. Each service should have a single responsibility.
 
 ### 2. **Design the Architecture**
-   - **Service Communication**: Choose how your microservices will communicate (e.g., REST, gRPC, message queues).
-   - **Data Storage**: Decide on the databases or data storage solutions for each service. Consider using different databases for different services if needed.
-   - **API Gateway**: Consider implementing an API gateway to manage requests to your microservices.
+   - **Service Communication**: 
+     - Primary: gRPC for high-performance internal service communication
+     - Event-driven: Kafka for asynchronous workflows and event propagation
+     - WebSockets for real-time client updates and notifications
+   - **Data Storage**: 
+     - PostgreSQL: Primary relational data store for structured data and user management
+     - MongoDB: Document store for flexible schema data and scan results
+     - Elasticsearch: For efficient full-text search and analytics across OSINT data
+     - Redis: For caching, rate limiting, and ephemeral data storage
+   - **API Gateway**: Implement an API gateway using Envoy with custom Rust extensions for:
+     - Request routing and load balancing
+     - Authentication and authorization
+     - Rate limiting and circuit breaking
+     - Request/response transformation
+     - Monitoring and observability integration
 
 ### 3. **Choose Rust Frameworks and Libraries**
    - **Web Framework**: Consider using frameworks Rocket for building your web services.
