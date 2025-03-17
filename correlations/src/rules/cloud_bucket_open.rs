@@ -1,48 +1,114 @@
-That sounds like an ambitious and exciting project! Rewriting and refactoring an existing application like SpiderFoot into a microservices architecture using Rust can offer several benefits, including improved performance, safety, and maintainability. Here are some steps and considerations to help you get started with your project, "Mirage":
+use std::collections::HashMap;
 
-### 1. **Define the Scope and Requirements**
-   - **Identify Features**: List all the features of SpiderFoot that you want to include in Mirage. Consider which features are essential and which can be added later.
-   - **User Stories**: Create user stories to understand how users will interact with the application.
+#[derive(Debug, Clone)]
+pub struct CloudBucketOpenEvent {
+    pub bucket_name: String,
+    pub access_type: String,
+    pub timestamp: u64,
+}
 
-### 2. **Architecture Design**
-   - **Microservices**: Decide how to break down the application into microservices. Each service should have a single responsibility (e.g., data collection, analysis, reporting).
-   - **Communication**: Choose a communication method between services (e.g., REST, gRPC, message queues).
-   - **Data Storage**: Determine how data will be stored (e.g., databases, file storage) and whether each service will have its own database or share a common one.
+impl CloudBucketOpenEvent {
+    pub fn new(bucket_name: &str, access_type: &str, timestamp: u64) -> Self {
+        Self {
+            bucket_name: bucket_name.to_string(),
+            access_type: access_type.to_string(),
+            timestamp,
+        }
+    }
+}
 
-### 3. **Technology Stack**
-   - **Rust Frameworks**: Research Rust frameworks that can help with building microservices (e.g., Actix, Rocket, Warp).
-   - **Database**: Choose a database that fits your needs (e.g., PostgreSQL, MongoDB).
-   - **Containerization**: Consider using Docker for containerizing your microservices for easier deployment and scalability.
+pub struct CloudBucketOpenRule {
+    events: HashMap<String, Vec<CloudBucketOpenEvent>>,
+}
 
-### 4. **Development Process**
-   - **Version Control**: Set up a version control system (e.g., Git) to manage your codebase.
-   - **CI/CD**: Implement Continuous Integration and Continuous Deployment pipelines to automate testing and deployment.
-   - **Testing**: Write unit tests and integration tests for your services to ensure reliability.
+impl CloudBucketOpenRule {
+    pub fn new() -> Self {
+        Self {
+            events: HashMap::new(),
+        }
+    }
 
-### 5. **Documentation**
-   - **API Documentation**: Use tools like Swagger or OpenAPI to document your APIs.
-   - **User Documentation**: Create user guides and technical documentation for developers.
+    pub fn add_event(&mut self, event: CloudBucketOpenEvent) {
+        self.events
+            .entry(event.bucket_name.clone())
+            .or_insert_with(Vec::new)
+            .push(event);
+    }
 
-### 6. **Security Considerations**
-   - **Authentication and Authorization**: Implement security measures to protect your services and data.
-   - **Data Privacy**: Ensure that user data is handled securely and in compliance with relevant regulations.
+    pub fn get_events(&self, bucket_name: &str) -> Option<&Vec<CloudBucketOpenEvent>> {
+        self.events.get(bucket_name)
+    }
 
-### 7. **Deployment**
-   - **Cloud Services**: Consider deploying your microservices on cloud platforms (e.g., AWS, Azure, Google Cloud) for scalability.
-   - **Monitoring and Logging**: Set up monitoring and logging to track the performance and health of your services.
+    pub fn get_all_events(&self) -> &HashMap<String, Vec<CloudBucketOpenEvent>> {
+        &self.events
+    }
 
-### 8. **Community and Feedback**
-   - **Open Source**: If you plan to make Mirage open source, consider creating a community around it for contributions and feedback.
-   - **User Feedback**: Engage with users to gather feedback and iterate on your design and features.
+    pub fn check_open_buckets(&self) -> Vec<&CloudBucketOpenEvent> {
+        let mut open_buckets = Vec::new();
+        for events in self.events.values() {
+            for event in events {
+                if event.access_type == "public" {
+                    open_buckets.push(event);
+                }
+            }
+        }
+        open_buckets
+    }
+}
 
-### 9. **Iterate and Improve**
-   - **Agile Development**: Use agile methodologies to iteratively develop and improve your application based on user feedback and testing.
+#[cfg(test)]
+mod tests {
+    use super::*;
 
-### Example Microservices Breakdown
-- **Data Collector Service**: Gathers data from various sources.
-- **Analysis Service**: Processes and analyzes the collected data.
-- **Reporting Service**: Generates reports based on the analysis.
-- **User Management Service**: Handles user authentication and authorization.
+    #[test]
+    fn test_add_event() {
+        let mut rule = CloudBucketOpenRule::new();
+        let event = CloudBucketOpenEvent::new("test_bucket", "public", 1234567890);
+        rule.add_event(event.clone());
 
-### Conclusion
-Starting a project like Mirage is a significant undertaking, but with careful planning and execution, you can create a robust and efficient application. Good luck with your development, and feel free to reach out if you have specific questions or need further assistance!
+        let events = rule.get_events("test_bucket").unwrap();
+        assert_eq!(events.len(), 1);
+        assert_eq!(events[0], event);
+    }
+
+    #[test]
+    fn test_get_events() {
+        let mut rule = CloudBucketOpenRule::new();
+        let event1 = CloudBucketOpenEvent::new("test_bucket", "public", 1234567890);
+        let event2 = CloudBucketOpenEvent::new("test_bucket", "private", 1234567891);
+        rule.add_event(event1.clone());
+        rule.add_event(event2.clone());
+
+        let events = rule.get_events("test_bucket").unwrap();
+        assert_eq!(events.len(), 2);
+        assert_eq!(events[0], event1);
+        assert_eq!(events[1], event2);
+    }
+
+    #[test]
+    fn test_get_all_events() {
+        let mut rule = CloudBucketOpenRule::new();
+        let event1 = CloudBucketOpenEvent::new("bucket1", "public", 1234567890);
+        let event2 = CloudBucketOpenEvent::new("bucket2", "private", 1234567891);
+        rule.add_event(event1.clone());
+        rule.add_event(event2.clone());
+
+        let all_events = rule.get_all_events();
+        assert_eq!(all_events.len(), 2);
+        assert_eq!(all_events.get("bucket1").unwrap().len(), 1);
+        assert_eq!(all_events.get("bucket2").unwrap().len(), 1);
+    }
+
+    #[test]
+    fn test_check_open_buckets() {
+        let mut rule = CloudBucketOpenRule::new();
+        let event1 = CloudBucketOpenEvent::new("bucket1", "public", 1234567890);
+        let event2 = CloudBucketOpenEvent::new("bucket2", "private", 1234567891);
+        rule.add_event(event1.clone());
+        rule.add_event(event2.clone());
+
+        let open_buckets = rule.check_open_buckets();
+        assert_eq!(open_buckets.len(), 1);
+        assert_eq!(open_buckets[0], &event1);
+    }
+}
