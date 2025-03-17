@@ -13,17 +13,21 @@ struct Claims {
 
 async fn login() -> impl Responder {
     // Implement login logic
-    HttpResponse::Ok().body("Login")
+    let user_id = "user123"; // Example user ID
+    let token = generate_token(user_id).await;
+    HttpResponse::Ok().json(token)
 }
 
 async fn refresh() -> impl Responder {
     // Implement token refresh logic
-    HttpResponse::Ok().body("Refresh")
+    let user_id = "user123"; // Example user ID
+    let token = generate_token(user_id).await;
+    HttpResponse::Ok().json(token)
 }
 
 async fn logout() -> impl Responder {
     // Implement logout logic
-    HttpResponse::Ok().body("Logout")
+    HttpResponse::Ok().body("Logout successful")
 }
 
 async fn validate_token(token: &str) -> bool {
