@@ -1,0 +1,3 @@
+target
+!./services/auth-service/Cargo.toml
+!./services/auth-service/migrations
