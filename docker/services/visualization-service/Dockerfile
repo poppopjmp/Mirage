@@ -5,25 +5,28 @@ RUN apt-get update && \
     apt-get install -y pkg-config libssl-dev && \
     rm -rf /var/lib/apt/lists/*
 
-# Create a new empty project
-RUN USER=root cargo new --bin visualization-service
-WORKDIR /visualization-service
+# Copy Cargo configuration files first for better caching
+COPY Cargo.toml Cargo.lock* ./
+COPY common/Cargo.toml ./common/
+COPY services/visualization-service/Cargo.toml ./services/visualization-service/
 
-# Copy manifests
-COPY ./services/visualization-service/Cargo.toml ./Cargo.toml
-COPY ./common ./common
+# Create dummy source files to build dependencies
+RUN mkdir -p common/src services/visualization-service/src \
+    && echo "fn main() {}" > common/src/lib.rs \
+    && echo "fn main() {}" > services/visualization-service/src/main.rs
 
-# Build dependencies - this is the caching Docker layer
-RUN cargo build --release
-RUN rm src/*.rs
-
-# Copy source code
-COPY ./services/visualization-service/src ./src
-
-# Build for release
-RUN rm ./target/release/deps/mirage_visualization_service*
+# Build dependencies only (this will be cached if dependencies don't change)
 RUN cargo build --release
 
+# Now copy the actual source code
+COPY common/src ./common/src
+COPY services/visualization-service/src ./services/visualization-service/src
+
+# Build the entire project with actual source code
+# Touch the main files to ensure they get rebuilt with the real code
+RUN touch common/src/lib.rs services/visualization-service/src/main.rs \
+    && cargo build --release
+    
 # Runtime stage
 FROM debian:bullseye-slim
 
