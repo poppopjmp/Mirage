@@ -60,7 +60,7 @@ jobs:
           fi
       
       - name: Setup Kubernetes tooling
-        uses: azure/setup-kubectl@v3
+        uses: azure/setup-kubectl@v4
         
       - name: Setup Helm
         uses: azure/setup-helm@v3
