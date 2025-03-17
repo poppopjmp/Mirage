@@ -1,48 +1,90 @@
-That sounds like an exciting project! Rewriting and refactoring a tool like SpiderFoot into microservices using Rust can provide several benefits, including improved performance, better memory management, and enhanced concurrency. Here’s a high-level plan to help you get started on your project, "Mirage":
+use std::net::ToSocketAddrs;
+use std::net::UdpSocket;
+use std::time::Duration;
 
-### 1. Define the Scope and Features
-- **Identify Core Features**: List all the features of SpiderFoot that you want to include in Mirage. This could include reconnaissance, data collection, and reporting functionalities.
-- **Prioritize Features**: Determine which features are essential for the initial release and which can be added later.
+pub struct DnsScanner;
 
-### 2. Microservices Architecture
-- **Service Identification**: Break down the application into smaller, manageable microservices. For example:
-  - **Data Collection Service**: Handles gathering data from various sources.
-  - **Analysis Service**: Processes and analyzes the collected data.
-  - **Reporting Service**: Generates reports based on the analysis.
-  - **User Management Service**: Manages user authentication and authorization.
-- **Communication**: Decide how the microservices will communicate (e.g., REST APIs, gRPC, message queues).
+impl DnsScanner {
+    pub fn new() -> Self {
+        DnsScanner
+    }
 
-### 3. Technology Stack
-- **Rust**: Use Rust for the core implementation of each microservice.
-- **Database**: Choose a database that fits your needs (e.g., PostgreSQL, MongoDB).
-- **Containerization**: Use Docker to containerize each microservice for easier deployment and scaling.
-- **Orchestration**: Consider using Kubernetes or Docker Compose for managing your microservices.
+    pub fn perform_dns_lookup(&self, domain: &str) -> Result<Vec<String>, String> {
+        let server = "8.8.8.8:53";
+        let socket = UdpSocket::bind("0.0.0.0:0").map_err(|e| e.to_string())?;
+        socket
+            .set_read_timeout(Some(Duration::from_secs(5)))
+            .map_err(|e| e.to_string())?;
 
-### 4. Development Process
-- **Set Up Version Control**: Use Git for version control and create a repository for Mirage.
-- **Code Structure**: Organize your codebase with clear directory structures for each microservice.
-- **Documentation**: Maintain clear documentation for each service, including API endpoints and usage instructions.
+        let mut buf = [0u8; 512];
+        let len = self.build_query(domain, &mut buf)?;
+        socket
+            .send_to(&buf[..len], server)
+            .map_err(|e| e.to_string())?;
 
-### 5. Implementation
-- **Start with a Prototype**: Begin by implementing a simple version of one microservice to validate your architecture and technology choices.
-- **Iterate**: Gradually add more features and services, testing each component thoroughly.
+        let (amt, _) = socket.recv_from(&mut buf).map_err(|e| e.to_string())?;
+        self.parse_response(&buf[..amt])
+    }
 
-### 6. Testing
-- **Unit Testing**: Write unit tests for each microservice to ensure individual components work as expected.
-- **Integration Testing**: Test the interactions between microservices to ensure they communicate correctly.
-- **Load Testing**: Simulate high traffic to ensure the system can handle the expected load.
+    fn build_query(&self, domain: &str, buf: &mut [u8]) -> Result<usize, String> {
+        // Build a DNS query for the given domain
+        // This is a simplified example and may not cover all cases
+        let mut pos = 0;
+        buf[pos] = 0x12; // Transaction ID
+        buf[pos + 1] = 0x34;
+        buf[pos + 2] = 0x01; // Standard query
+        buf[pos + 3] = 0x00;
+        buf[pos + 4] = 0x00; // Questions
+        buf[pos + 5] = 0x01;
+        buf[pos + 6] = 0x00; // Answer RRs
+        buf[pos + 7] = 0x00;
+        buf[pos + 8] = 0x00; // Authority RRs
+        buf[pos + 9] = 0x00;
+        buf[pos + 10] = 0x00; // Additional RRs
+        buf[pos + 11] = 0x00;
+        pos += 12;
 
-### 7. Deployment
-- **CI/CD Pipeline**: Set up a continuous integration and deployment pipeline to automate testing and deployment.
-- **Monitoring**: Implement monitoring and logging to track the performance and health of your microservices.
+        for part in domain.split('.') {
+            let len = part.len();
+            buf[pos] = len as u8;
+            pos += 1;
+            for b in part.as_bytes() {
+                buf[pos] = *b;
+                pos += 1;
+            }
+        }
+        buf[pos] = 0x00; // End of domain name
+        pos += 1;
+        buf[pos] = 0x00; // Type A
+        buf[pos + 1] = 0x01;
+        buf[pos + 2] = 0x00; // Class IN
+        buf[pos + 3] = 0x01;
+        pos += 4;
 
-### 8. Community and Contributions
-- **Open Source**: Consider making Mirage an open-source project to encourage community contributions.
-- **Documentation**: Provide clear guidelines for contributing to the project.
+        Ok(pos)
+    }
 
-### 9. Future Enhancements
-- **Feedback Loop**: Gather feedback from users to identify areas for improvement and new features.
-- **Scalability**: Plan for scaling your microservices as the user base grows.
+    fn parse_response(&self, buf: &[u8]) -> Result<Vec<String>, String> {
+        // Parse the DNS response and extract IP addresses
+        // This is a simplified example and may not cover all cases
+        let mut pos = 12;
+        while buf[pos] != 0x00 {
+            pos += 1;
+        }
+        pos += 5; // Skip null byte and QTYPE/QCLASS
 
-### Conclusion
-This plan provides a structured approach to rewriting SpiderFoot as Mirage in Rust using a microservices architecture. As you progress, be sure to adapt the plan based on your findings and challenges. Good luck with your project!
+        let mut ips = Vec::new();
+        while pos < buf.len() {
+            pos += 10; // Skip NAME, TYPE, CLASS, TTL
+            let rdlen = ((buf[pos] as usize) << 8) | (buf[pos + 1] as usize);
+            pos += 2;
+            if rdlen == 4 {
+                let ip = format!("{}.{}.{}.{}", buf[pos], buf[pos + 1], buf[pos + 2], buf[pos + 3]);
+                ips.push(ip);
+            }
+            pos += rdlen;
+        }
+
+        Ok(ips)
+    }
+}
