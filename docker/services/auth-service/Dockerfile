@@ -1,33 +1,49 @@
-FROM rust:1.70-slim AS builder
+FROM rust:1.73-slim as builder
 
-# Create app directory
-WORKDIR /app
+# Install build dependencies
+RUN apt-get update && \
+    apt-get install -y pkg-config libssl-dev libpq-dev && \
+    rm -rf /var/lib/apt/lists/*
 
-# Copy the entire project for building
-COPY . .
+# Create a new empty project
+RUN USER=root cargo new --bin auth-service
+WORKDIR /auth-service
 
-# Build the auth service
-WORKDIR /auth
-COPY --from=0 /app/services/auth /auth
+# Copy manifests
+COPY ./services/auth-service/Cargo.toml ./Cargo.toml
+COPY ./common ./common
+
+# Build dependencies - this is the caching Docker layer
+RUN cargo build --release
+RUN rm src/*.rs
+
+# Copy source code
+COPY ./services/auth-service/src ./src
+COPY ./services/auth-service/migrations ./migrations
+COPY ./config/auth-service /app/config/auth-service
+
+# Build for release
+RUN rm ./target/release/deps/mirage_auth_service*
 RUN cargo build --release
 
+# Runtime stage
 FROM debian:bullseye-slim
 
-# Install required dependencies
+# Install runtime dependencies
 RUN apt-get update && \
     apt-get install -y ca-certificates libpq5 && \
     rm -rf /var/lib/apt/lists/*
 
 # Copy the binary and config from builder
-COPY --from=builder /auth/target/release/mirage-auth /usr/local/bin/
+COPY --from=builder /auth-service/target/release/mirage-auth-service /usr/local/bin/
 COPY --from=builder /app/config /app/config
-COPY --from=builder /auth/migrations /app/migrations
+COPY --from=builder /auth-service/migrations /app/migrations
 
 WORKDIR /app
 ENV RUN_ENV=production
 
 # Expose the port
-EXPOSE 8000
+EXPOSE 8001
 
 # Run the binary
-CMD ["mirage-auth"]
+CMD ["mirage-auth-service"]

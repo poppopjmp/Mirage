@@ -20,9 +20,9 @@ This directory contains Docker definitions for all Mirage microservices. Each se
 | visualization-service | Rust | Actix-web |
 | reporting-service | Rust | Actix-web |
 | notification-service | Rust | Actix-web |
-| integration-service | Python | FastAPI |
+| integration-service | Rust | Actix-web |
 | configuration-service | Go | Gin |
-| discovery-service | Go | Gin |
+| discovery-service | Rust | Actix-web |
 | web-ui | TypeScript | React |
 
 ## Building and Running

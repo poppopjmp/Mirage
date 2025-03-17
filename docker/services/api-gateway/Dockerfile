@@ -6,11 +6,11 @@ RUN apt-get update && \
     rm -rf /var/lib/apt/lists/*
 
 # Create a new empty project
-RUN USER=root cargo new --bin discovery-service
-WORKDIR /discovery-service
+RUN USER=root cargo new --bin api-gateway
+WORKDIR /api-gateway
 
 # Copy manifests
-COPY ./services/discovery-service/Cargo.toml ./Cargo.toml
+COPY ./services/api-gateway/Cargo.toml ./Cargo.toml
 COPY ./common ./common
 
 # Build dependencies - this is the caching Docker layer
@@ -18,11 +18,11 @@ RUN cargo build --release
 RUN rm src/*.rs
 
 # Copy source code
-COPY ./services/discovery-service/src ./src
-COPY ./config/discovery-service /app/config/discovery-service
+COPY ./services/api-gateway/src ./src
+COPY ./config/api-gateway /app/config/api-gateway
 
 # Build for release
-RUN rm ./target/release/deps/mirage_discovery_service*
+RUN rm ./target/release/deps/mirage_api_gateway*
 RUN cargo build --release
 
 # Runtime stage
@@ -34,14 +34,14 @@ RUN apt-get update && \
     rm -rf /var/lib/apt/lists/*
 
 # Copy the binary and config from builder
-COPY --from=builder /discovery-service/target/release/mirage-discovery-service /usr/local/bin/
+COPY --from=builder /api-gateway/target/release/mirage-api-gateway /usr/local/bin/
 COPY --from=builder /app/config /app/config
 
 WORKDIR /app
 ENV RUN_ENV=production
 
 # Expose the port
-EXPOSE 8007
+EXPOSE 8000
 
 # Run the binary
-CMD ["mirage-discovery-service"]
+CMD ["mirage-api-gateway"]
