@@ -6,20 +6,21 @@ This directory contains documentation for each microservice in the Mirage platfo
 
 | Service Name | Description | Language/Framework | Repository |
 |-------------|-------------|-------------------|------------|
-| API Gateway | Entry point for all client requests | Go/Chi | [mirage-api-gateway](https://github.com/mirage/mirage-api-gateway) |
-| Auth Service | Authentication and authorization | Go/Echo | [mirage-auth-service](https://github.com/mirage/mirage-auth-service) |
-| User Management | User and organization management | Go/Fiber | [mirage-user-service](https://github.com/mirage/mirage-user-service) |
-| Scan Orchestration | Manages scan lifecycle | Python/FastAPI | [mirage-scan-orchestration](https://github.com/mirage/mirage-scan-orchestration) |
-| Module Registry | Module management | Python/Flask | [mirage-module-registry](https://github.com/mirage/mirage-module-registry) |
-| Data Collection | Intelligence gathering | Python/FastAPI | [mirage-data-collection](https://github.com/mirage/mirage-data-collection) |
-| Data Storage | Central data repository | Go/Gin | [mirage-data-storage](https://github.com/mirage/mirage-data-storage) |
-| Correlation Engine | Data relationship analysis | Python/FastAPI | [mirage-correlation-engine](https://github.com/mirage/mirage-correlation-engine) |
-| Visualization | Data visualization | Node.js/Express | [mirage-visualization](https://github.com/mirage/mirage-visualization) |
-| Reporting | Report generation | Node.js/Express | [mirage-reporting](https://github.com/mirage/mirage-reporting) |
-| Notification | Alert management | Go/Echo | [mirage-notification](https://github.com/mirage/mirage-notification) |
-| Integration | Third-party integrations | Python/FastAPI | [mirage-integration](https://github.com/mirage/mirage-integration) |
-| Configuration | Configuration management | Go/Gin | [mirage-configuration](https://github.com/mirage/mirage-configuration) |
-| Discovery | Service discovery | Go/Gin | [mirage-discovery](https://github.com/mirage/mirage-discovery) |
+| API Gateway | Entry point for all client requests | Rust/Actix-web | [mirage-api-gateway](https://github.com/mirage/mirage-api-gateway) |
+| Auth Service | Authentication and authorization | Rust/Actix-web | [mirage-auth-service](https://github.com/mirage/mirage-auth-service) |
+| User Management | User and organization management | Rust/Rocket | [mirage-user-service](https://github.com/mirage/mirage-user-service) |
+| Scan Orchestration | Manages scan lifecycle | Rust/Actix-web | [mirage-scan-orchestration](https://github.com/mirage/mirage-scan-orchestration) |
+| Module Registry | Module management | Rust/Actix-web | [mirage-module-registry](https://github.com/mirage/mirage-module-registry) |
+| Data Collection | Collects data from various sources | Rust/Actix-web | [mirage-data-collection](https://github.com/mirage/mirage-data-collection) |
+| Data Storage | Stores collected data | Rust/Actix-web | [mirage-data-storage](https://github.com/mirage/mirage-data-storage) |
+| Correlation Engine | Correlates and analyzes data | Rust/Actix-web | [mirage-correlation-engine](https://github.com/mirage/mirage-correlation-engine) |
+| Visualization | Visualizes data | Rust/Actix-web | [mirage-visualization](https://github.com/mirage/mirage-visualization) |
+| Reporting | Generates reports | Rust/Actix-web | [mirage-reporting](https://github.com/mirage/mirage-reporting) |
+| Notification | Sends notifications | Rust/Actix-web | [mirage-notification](https://github.com/mirage/mirage-notification) |
+| Integration | Integrates with third-party tools | Rust/Actix-web | [mirage-integration](https://github.com/mirage/mirage-integration) |
+| Configuration | Manages configuration | Go/Gin | [mirage-configuration](https://github.com/mirage/mirage-configuration) |
+| Discovery | Service discovery | Rust/Actix-web | [mirage-discovery](https://github.com/mirage/mirage-discovery) |
+| Web UI | User interface | TypeScript/React | [mirage-web-ui](https://github.com/mirage/mirage-web-ui) |
 
 ## Service Architecture Principles
 

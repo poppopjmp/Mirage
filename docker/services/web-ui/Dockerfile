@@ -1,25 +1,27 @@
-FROM node:18-alpine AS builder
+FROM node:18-slim as builder
 
 WORKDIR /app
 
 # Copy package files and install dependencies
-COPY services/web-ui/package.json services/web-ui/package-lock.json ./
+COPY ./web-ui/package*.json ./
 RUN npm ci
 
-# Copy source code
-COPY services/web-ui .
+# Copy the source code
+COPY ./web-ui ./
 
 # Build the application
 RUN npm run build
 
-# Use Nginx to serve the application
+# Use Nginx for serving the application
 FROM nginx:alpine
 
-# Copy built assets from builder stage
+# Copy the built app
 COPY --from=builder /app/build /usr/share/nginx/html
 
-# Copy custom nginx config if needed
-COPY docker/services/web-ui/nginx.conf /etc/nginx/conf.d/default.conf
+# Copy the Nginx configuration
+COPY ./docker/services/web-ui/nginx.conf /etc/nginx/conf.d/default.conf
 
+# Expose port 80
 EXPOSE 80
+
 CMD ["nginx", "-g", "daemon off;"]
