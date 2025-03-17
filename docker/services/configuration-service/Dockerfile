@@ -1,29 +1,49 @@
-FROM golang:1.21-alpine AS builder
+FROM rust:1.73-slim as builder
+
+# Install build dependencies
+RUN apt-get update && \
+    apt-get install -y pkg-config libssl-dev libpq-dev && \
+    rm -rf /var/lib/apt/lists/*
+
+# Create a new empty project
+RUN USER=root cargo new --bin configuration-service
+WORKDIR /configuration-service
+
+# Copy manifests
+COPY ./services/configuration-service/Cargo.toml ./Cargo.toml
+COPY ./common ./common
+
+# Build dependencies - this is the caching Docker layer
+RUN cargo build --release
+RUN rm src/*.rs
+
+# Copy source code
+COPY ./services/configuration-service/src ./src
+COPY ./services/configuration-service/migrations ./migrations
+COPY ./config/configuration-service /app/config/configuration-service
+
+# Build for release
+RUN rm ./target/release/deps/mirage_configuration-service*
+RUN cargo build --release
+
+# Runtime stage
+FROM debian:bullseye-slim
+
+# Install runtime dependencies
+RUN apt-get update && \
+    apt-get install -y ca-certificates libpq5 && \
+    rm -rf /var/lib/apt/lists/*
+
+# Copy the binary and config from builder
+COPY --from=builder /configuration-service/target/release/mirage-configuration-service /usr/local/bin/
+COPY --from=builder /app/config /app/config
+COPY --from=builder /configuration-service/migrations /app/migrations
 
 WORKDIR /app
+ENV RUN_ENV=production
 
-# Copy dependencies first
-COPY services/configuration-service/go.mod services/configuration-service/go.sum ./
-RUN go mod download
+# Expose the port
+EXPOSE 8001
 
-# Copy the source code
-COPY services/configuration-service .
-
-# Build the application
-RUN CGO_ENABLED=0 GOOS=linux go build -o configuration-service ./cmd/server
-
-# Use a minimal image for the final container
-FROM alpine:3.18
-
-WORKDIR /app
-
-# Copy the binary from the builder stage
-COPY --from=builder /app/configuration-service .
-COPY --from=builder /app/config ./config
-
-# Create non-root user
-RUN addgroup -S appgroup && adduser -S appuser -G appgroup
-USER appuser
-
-EXPOSE 8092
-CMD ["./configuration-service"]
+# Run the binary
+CMD ["mirage-configuration-service"]
