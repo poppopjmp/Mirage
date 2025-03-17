@@ -1,20 +1,20 @@
 [package]
 name = "mirage-notification"
 version = "0.1.0"
-
+edition = "2021"
 description = "Notification service for Mirage OSINT platform"
 
 [dependencies]
 mirage-common = { path = "../../common" }
 actix-web = "4.3"
-tokio = { workspace = true }
-serde = { workspace = true }
-serde_json = { workspace = true }
-tracing = { workspace = true }
-tracing-subscriber = { workspace = true }
-config = { workspace = true }
-uuid = { workspace = true }
-chrono = { workspace = true }
+tokio = { version = "1.0", features = ["full"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+tracing = "0.1"
+tracing-subscriber = "0.3"
+config = "0.13"
+uuid = { version = "1.0", features = ["v4", "serde"] }
+chrono = { version = "0.4", features = ["serde"] }
 sqlx = { version = "0.7", features = ["postgres", "runtime-tokio-rustls", "chrono", "uuid"] }
 lettre = "0.10"
 handlebars = "4.3"

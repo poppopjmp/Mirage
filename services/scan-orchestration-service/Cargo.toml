@@ -1,19 +1,58 @@
 [package]
 name = "mirage-scan-orchestration"
 version = "0.1.0"
-
+edition = "2021"
+authors = ["Mirage Team"]
 description = "Scan orchestration service for Mirage OSINT platform"
+license = "MIT" # or appropriate license
 
-[dependencies]
-mirage-common = { path = "../../common" }
-tokio = { workspace = true }
-actix-web = "4.3"
-serde = { workspace = true }
-serde_json = { workspace = true }
-tracing = { workspace = true }
-tracing-subscriber = { workspace = true }
-config = { workspace = true }
-uuid = { workspace = true }
-chrono = { workspace = true }
-sqlx = { version = "0.7", features = ["postgres", "runtime-tokio-rustls", "chrono", "uuid"] }
-futures = "0.3"
+# Internal dependencies
+[dependencies.mirage-common]
+path = "../../common"
+
+# Async runtime
+[dependencies.tokio]
+workspace = true
+features = ["full", "macros", "rt-multi-thread"]
+
+# Web framework
+[dependencies.actix-web]
+version = "4.3"
+features = ["rustls"]
+
+# Serialization
+[dependencies.serde]
+workspace = true
+features = ["derive"]
+
+[dependencies.serde_json]
+workspace = true
+
+# Database
+[dependencies.sqlx]
+version = "0.7"
+features = ["postgres", "runtime-tokio-rustls", "chrono", "uuid", "json", "macros"]
+
+# Logging
+[dependencies.tracing]
+workspace = true
+
+[dependencies.tracing-subscriber]
+workspace = true
+features = ["env-filter", "json"]
+
+# Configuration
+[dependencies.config]
+workspace = true
+
+# Utilities
+[dependencies.uuid]
+workspace = true
+features = ["v4", "serde"]
+
+[dependencies.chrono]
+workspace = true
+features = ["serde"]
+
+[dependencies.futures]
+version = "0.3"

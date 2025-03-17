@@ -12,7 +12,7 @@ WORKDIR /scanner-coordinator
 # Copy manifests
 COPY ./services/scanner-coordinator/Cargo.toml ./Cargo.toml
 COPY ./common ./common
-COPY ./config/scanner-coordinator /app/config/scanner-coordinator
+
 # Build dependencies - this is the caching Docker layer
 RUN cargo build --release
 RUN rm src/*.rs
@@ -22,7 +22,7 @@ COPY ./services/scanner-coordinator/src ./src
 COPY ./config/scanner-coordinator /app/config/scanner-coordinator
 
 # Build for release
-RUN rm ./target/release/deps/mirage_api_gateway*
+RUN rm ./target/release/deps/mirage-scanner-coordinator*
 RUN cargo build --release
 
 # Runtime stage
