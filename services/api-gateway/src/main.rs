@@ -1,4 +1,4 @@
-use actix_web::{web, App, HttpServer, HttpResponse, Responder};
+use actix_web::{web, App, HttpServer, HttpResponse, Responder, http, middleware};
 use actix_web::middleware::{Logger, NormalizePath};
 use actix_web_httpauth::middleware::HttpAuthentication;
 use actix_web_httpauth::extractors::bearer::BearerAuth;
@@ -8,10 +8,17 @@ use std::sync::Arc;
 use tokio::sync::Mutex;
 use std::collections::HashMap;
 
+mod config;
+mod auth;
+mod handlers;
+mod models;
+
 #[derive(Debug, Serialize, Deserialize)]
 struct Claims {
     sub: String,
     exp: usize,
+    role: Option<String>,
+    perms: Option<Vec<String>>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -20,68 +27,117 @@ struct ServiceResponse {
     data: Option<serde_json::Value>,
 }
 
-async fn validate_token(auth: BearerAuth) -> Result<Claims, actix_web::Error> {
+#[derive(Clone)]
+struct AppState {
+    service_endpoints: HashMap<String, String>,
+    auth_cache: Arc<Mutex<HashMap<String, Claims>>>,
+}
+
+async fn health_check() -> impl Responder {
+    HttpResponse::Ok().json(serde_json::json!({ "status": "ok", "version": env!("CARGO_PKG_VERSION") }))
+}
+
+async fn validate_token(req: actix_web::dev::ServiceRequest, auth: BearerAuth) -> Result<actix_web::dev::ServiceRequest, actix_web::Error> {
     let token = auth.token();
+    let app_state = req.app_data::<web::Data<AppState>>().unwrap();
+    
+    // Check cache first
+    {
+        let cache = app_state.auth_cache.lock().await;
+        if let Some(claims) = cache.get(token) {
+            // Check if token is expired
+            let now = chrono::Utc::now().timestamp() as usize;
+            if claims.exp > now {
+                // Token valid, proceed
+                return Ok(req);
+            }
+        }
+    }
+    
+    // Not in cache or expired, validate with auth service
     let secret = env::var("JWT_SECRET").expect("JWT_SECRET must be set");
     let validation = jsonwebtoken::Validation::default();
-    let token_data = jsonwebtoken::decode::<Claims>(token, &jsonwebtoken::DecodingKey::from_secret(secret.as_ref()), &validation)
-        .map_err(|_| actix_web::error::ErrorUnauthorized("Invalid token"))?;
-    Ok(token_data.claims)
-}
-
-async fn route_request(path: web::Path<String>, req_body: String, services: web::Data<Arc<Mutex<HashMap<String, String>>>>) -> impl Responder {
-    let service_name = path.into_inner();
-    let services = services.lock().await;
-    if let Some(service_url) = services.get(&service_name) {
-        let client = reqwest::Client::new();
-        let res = client.post(service_url)
-            .body(req_body)
-            .send()
-            .await
-            .map_err(|_| HttpResponse::InternalServerError().finish())?;
-        let res_body = res.text().await.map_err(|_| HttpResponse::InternalServerError().finish())?;
-        HttpResponse::Ok().body(res_body)
-    } else {
-        HttpResponse::NotFound().body("Service not found")
+    
+    match jsonwebtoken::decode::<Claims>(token, &jsonwebtoken::DecodingKey::from_secret(secret.as_ref()), &validation) {
+        Ok(token_data) => {
+            // Add to cache
+            {
+                let mut cache = app_state.auth_cache.lock().await;
+                cache.insert(token.to_string(), token_data.claims.clone());
+            }
+            Ok(req)
+        },
+        Err(_) => Err(actix_web::error::ErrorUnauthorized("Invalid token"))
     }
-}
-
-async fn index() -> impl Responder {
-    HttpResponse::Ok().body("Hello world!")
 }
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
     env_logger::init();
 
-    let services: Arc<Mutex<HashMap<String, String>>> = Arc::new(Mutex::new(HashMap::new()));
-    {
-        let mut services = services.lock().await;
-        services.insert("auth".to_string(), "http://auth-service:8080".to_string());
-        services.insert("user-management".to_string(), "http://user-management-service:8080".to_string());
-        services.insert("scan-orchestration".to_string(), "http://scan-orchestration-service:8080".to_string());
-        services.insert("module-registry".to_string(), "http://module-registry-service:8080".to_string());
-        services.insert("data-collection".to_string(), "http://data-collection-service:8080".to_string());
-        services.insert("data-storage".to_string(), "http://data-storage-service:8080".to_string());
-        services.insert("correlation-engine".to_string(), "http://correlation-engine-service:8080".to_string());
-        services.insert("visualization".to_string(), "http://visualization-service:8080".to_string());
-        services.insert("reporting".to_string(), "http://reporting-service:8080".to_string());
-        services.insert("notification".to_string(), "http://notification-service:8080".to_string());
-        services.insert("integration".to_string(), "http://integration-service:8080".to_string());
-        services.insert("configuration".to_string(), "http://configuration-service:8080".to_string());
-        services.insert("discovery".to_string(), "http://discovery-service:8080".to_string());
-    }
+    // Load service configuration
+    let mut service_endpoints = HashMap::new();
+    service_endpoints.insert("auth".to_string(), "http://auth-service:8081".to_string());
+    service_endpoints.insert("user-management".to_string(), "http://user-management-service:8082".to_string());
+    service_endpoints.insert("scan-orchestration".to_string(), "http://scan-orchestration-service:8083".to_string());
+    service_endpoints.insert("module-registry".to_string(), "http://module-registry-service:8084".to_string());
+    service_endpoints.insert("data-collection".to_string(), "http://data-collection-service:8085".to_string());
+    service_endpoints.insert("data-storage".to_string(), "http://data-storage-service:8086".to_string());
+    service_endpoints.insert("correlation-engine".to_string(), "http://correlation-engine-service:8087".to_string());
+    service_endpoints.insert("visualization".to_string(), "http://visualization-service:8088".to_string());
+    service_endpoints.insert("reporting".to_string(), "http://reporting-service:8089".to_string());
+    service_endpoints.insert("notification".to_string(), "http://notification-service:8090".to_string());
+    service_endpoints.insert("integration".to_string(), "http://integration-service:8091".to_string());
+    service_endpoints.insert("configuration".to_string(), "http://configuration-service:8092".to_string());
+    service_endpoints.insert("discovery".to_string(), "http://discovery-service:8093".to_string());
+
+    let app_state = web::Data::new(AppState {
+        service_endpoints,
+        auth_cache: Arc::new(Mutex::new(HashMap::new())),
+    });
 
     HttpServer::new(move || {
+        let auth = HttpAuthentication::bearer(validate_token);
         App::new()
+            .app_data(app_state.clone())
             .wrap(Logger::default())
             .wrap(NormalizePath::default())
-            .wrap(HttpAuthentication::bearer(validate_token))
-            .app_data(web::Data::new(services.clone()))
-            .service(web::resource("/").to(index))
-            .service(web::resource("/{service_name}").route(web::post().to(route_request)))
+            .wrap(middleware::Compress::default())
+            // Public routes
+            .service(
+                web::scope("/api/v1")
+                    .route("/health", web::get().to(health_check))
+                    .service(
+                        web::scope("/auth")
+                            .route("/login", web::post().to(handlers::auth::login))
+                            .route("/register", web::post().to(handlers::auth::register))
+                            .route("/refresh", web::post().to(handlers::auth::refresh_token))
+                    )
+            )
+            // Protected routes
+            .service(
+                web::scope("/api/v1")
+                    .wrap(auth)
+                    .service(
+                        web::scope("/users")
+                            .route("", web::get().to(handlers::proxy::proxy_request))
+                            .route("/{id}", web::get().to(handlers::proxy::proxy_request))
+                            .route("", web::post().to(handlers::proxy::proxy_request))
+                            .route("/{id}", web::put().to(handlers::proxy::proxy_request))
+                            .route("/{id}", web::delete().to(handlers::proxy::proxy_request))
+                    )
+                    .service(
+                        web::scope("/scans")
+                            .route("", web::get().to(handlers::proxy::proxy_request))
+                            .route("/{id}", web::get().to(handlers::proxy::proxy_request))
+                            .route("", web::post().to(handlers::proxy::proxy_request))
+                            .route("/{id}", web::put().to(handlers::proxy::proxy_request))
+                            .route("/{id}", web::delete().to(handlers::proxy::proxy_request))
+                    )
+                    // Add more service routes as needed
+            )
     })
-    .bind("127.0.0.1:8080")?
+    .bind("0.0.0.0:8080")?
     .run()
     .await
 }

@@ -1,0 +1,31 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: middleware-config
+  namespace: mirage
+data:
+  cors-config.json: |-
+    {
+      "allowed_origins": [
+        "http://localhost:3000",
+        "http://localhost:8080",
+        "https://mirage.example.com"
+      ],
+      "allowed_methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+      "allowed_headers": ["Authorization", "Content-Type", "Accept"],
+      "max_age": 3600
+    }
+  rate-limits.json: |-
+    {
+      "default_rpm": 60,
+      "authenticated_rpm": 600,
+      "admin_rpm": 1200
+    }
+  logging-config.json: |-
+    {
+      "log_level": "info",
+      "log_format": "json",
+      "include_headers": false,
+      "include_client_ip": true,
+      "include_request_id": true
+    }

@@ -1,568 +1,288 @@
 use mirage_common::Error;
 use std::collections::HashMap;
-use plotters::prelude::*;
-use plotters::style::full_palette::{BLUE, RED, GREEN, YELLOW, PURPLE};
 
-pub trait ChartRenderer {
+pub trait ChartRenderer: Send + Sync {
     fn render_timeline(
         &self,
-        data: &[serde_json::Value],
+        entities_data: &[serde_json::Value],
         width: u32,
         height: u32,
-        options: Option<&HashMap<String, String>>,
+        options: Option<&HashMap<String, serde_json::Value>>,
     ) -> Result<Vec<u8>, Error>;
     
     fn render_bar(
         &self,
-        data: &[serde_json::Value],
+        entities_data: &[serde_json::Value],
         width: u32,
         height: u32,
-        options: Option<&HashMap<String, String>>,
+        options: Option<&HashMap<String, serde_json::Value>>,
     ) -> Result<Vec<u8>, Error>;
     
     fn render_pie(
         &self,
-        data: &[serde_json::Value],
+        entities_data: &[serde_json::Value],
         width: u32,
         height: u32,
-        options: Option<&HashMap<String, String>>,
+        options: Option<&HashMap<String, serde_json::Value>>,
     ) -> Result<Vec<u8>, Error>;
 }
 
-// SVG Chart Renderer
 pub struct SvgChartRenderer;
 
 impl SvgChartRenderer {
     pub fn new() -> Self {
-        Self {}
+        Self
     }
 }
 
 impl ChartRenderer for SvgChartRenderer {
     fn render_timeline(
         &self,
-        data: &[serde_json::Value],
+        entities_data: &[serde_json::Value],
         width: u32,
         height: u32,
-        options: Option<&HashMap<String, String>>,
+        _options: Option<&HashMap<String, serde_json::Value>>,
     ) -> Result<Vec<u8>, Error> {
-        let mut buffer = Vec::new();
+        // In a real implementation, this would use a charting library
+        // For now, create a simple SVG timeline
         
-        // Create SVG backend
-        let root = SVGBackend::with_string(&mut buffer, (width, height)).into_drawing_area();
+        let mut svg = format!(
+            r#"<svg xmlns="http://www.w3.org/2000/svg" width="{}" height="{}" viewBox="0 0 {} {}">"#,
+            width, height, width, height
+        );
         
-        // Fill background
-        root.fill(&WHITE)
-            .map_err(|e| Error::Internal(format!("Failed to fill background: {}", e)))?;
-
-        // Parse dates from data (this is simplified)
-        let mut time_points: Vec<(chrono::DateTime<chrono::Utc>, String, String)> = Vec::new();
-        for item in data {
-            if let (Some(created_at), Some(entity_type), Some(value)) = (
-                item["created_at"].as_str(),
-                item["entity_type"].as_str(),
-                item["value"].as_str(),
-            ) {
-                if let Ok(date) = chrono::DateTime::parse_from_rfc3339(created_at) {
-                    time_points.push((date.into(), entity_type.to_string(), value.to_string()));
-                }
+        // Add placeholder timeline
+        svg.push_str(&format!(
+            r#"<text x="{}" y="30" font-size="20" text-anchor="middle">Timeline Chart</text>"#,
+            width / 2
+        ));
+        
+        // Add horizontal axis
+        svg.push_str(&format!(
+            r#"<line x1="50" y1="{}" x2="{}" y2="{}" stroke="black" stroke-width="2" />"#,
+            height - 50, width - 50, height - 50
+        ));
+        
+        // Add axis labels
+        for i in 0..5 {
+            let x = 50 + i * (width - 100) / 4;
+            svg.push_str(&format!(
+                r#"<line x1="{}" y1="{}" x2="{}" y2="{}" stroke="black" stroke-width="1" />"#,
+                x, height - 50, x, height - 45
+            ));
+            svg.push_str(&format!(
+                r#"<text x="{}" y="{}" text-anchor="middle" font-size="12">Label {}</text>"#,
+                x, height - 30, i + 1
+            ));
+        }
+        
+        // Add data points - in a real implementation, this would visualize actual data
+        for (i, _entity) in entities_data.iter().enumerate().take(5) {
+            let x = 50 + i * (width - 100) / 4;
+            let y = 100 + (i % 3) * 50;
+            
+            svg.push_str(&format!(
+                r#"<circle cx="{}" cy="{}" r="5" fill="blue" />"#,
+                x, y
+            ));
+            
+            if i > 0 {
+                let prev_x = 50 + (i - 1) * (width - 100) / 4;
+                let prev_y = 100 + ((i - 1) % 3) * 50;
+                
+                svg.push_str(&format!(
+                    r#"<line x1="{}" y1="{}" x2="{}" y2="{}" stroke="blue" stroke-width="2" />"#,
+                    prev_x, prev_y, x, y
+                ));
             }
         }
         
-        // Sort by date
-        time_points.sort_by(|a, b| a.0.cmp(&b.0));
+        svg.push_str("</svg>");
         
-        if time_points.is_empty() {
-            // Draw "No Data" label if empty
-            root.draw_text(
-                "No timeline data available",
-                &("sans-serif", 20),
-                &BLACK,
-                (width as i32 / 2, height as i32 / 2),
-            ).map_err(|e| Error::Internal(format!("Failed to draw text: {}", e)))?;
-        } else {
-            // Calculate date range for the chart
-            let earliest = time_points.first().unwrap().0;
-            let latest = time_points.last().unwrap().0;
-            
-            // Add some padding to the date range
-            let date_range = latest.timestamp() - earliest.timestamp();
-            let padding = date_range.max(86400) / 10; // At least 1 day padding
-            
-            let start_time = earliest - chrono::Duration::seconds(padding);
-            let end_time = latest + chrono::Duration::seconds(padding);
-            
-            // Create the chart
-            let mut chart = ChartBuilder::on(&root)
-                .margin(40)
-                .caption("Entity Timeline", ("sans-serif", 30))
-                .x_label_area_size(40)
-                .y_label_area_size(60)
-                .build_cartesian_2d(start_time..end_time, 0..time_points.len() as i32)
-                .map_err(|e| Error::Internal(format!("Failed to build chart: {}", e)))?;
-                
-            chart.configure_mesh()
-                .x_labels(8)
-                .y_labels(0) // No y labels needed
-                .x_label_formatter(&|x| x.to_rfc3339())
-                .draw()
-                .map_err(|e| Error::Internal(format!("Failed to draw mesh: {}", e)))?;
-            
-            // Draw points on the timeline
-            for (i, (date, entity_type, value)) in time_points.iter().enumerate() {
-                let y = i as i32;
-                
-                // Draw a circle at the date point
-                let color = match entity_type.as_str() {
-                    "domain" => &BLUE,
-                    "ip" => &RED,
-                    "email" => &GREEN,
-                    _ => &YELLOW,
-                };
-                
-                chart.draw_series(std::iter::once(Circle::new((*date, y), 5, color.filled())))
-                    .map_err(|e| Error::Internal(format!("Failed to draw point: {}", e)))?
-                    .label(entity_type)
-                    .legend(move |(x, y)| Circle::new((x, y), 5, color.filled()));
-                
-                // Draw a label with the value
-                chart.draw_series(std::iter::once(Text::new(
-                    value.clone(), 
-                    (*date, y + 1), 
-                    ("sans-serif", 12).into_font().color(BLACK),
-                )))
-                .map_err(|e| Error::Internal(format!("Failed to draw label: {}", e)))?;
-            }
-            
-            // Draw the legend
-            chart.configure_series_labels()
-                .background_style(&WHITE)
-                .border_style(&BLACK)
-                .draw()
-                .map_err(|e| Error::Internal(format!("Failed to draw legend: {}", e)))?;
-        }
-        
-        root.present().map_err(|e| Error::Internal(format!("Failed to render: {}", e)))?;
-        
-        Ok(buffer.into())
+        Ok(svg.as_bytes().to_vec())
     }
     
     fn render_bar(
         &self,
-        data: &[serde_json::Value],
+        entities_data: &[serde_json::Value],
         width: u32,
         height: u32,
-        options: Option<&HashMap<String, String>>,
+        _options: Option<&HashMap<String, serde_json::Value>>,
     ) -> Result<Vec<u8>, Error> {
-        let mut buffer = Vec::new();
+        // Create a simple SVG bar chart
+        let mut svg = format!(
+            r#"<svg xmlns="http://www.w3.org/2000/svg" width="{}" height="{}" viewBox="0 0 {} {}">"#,
+            width, height, width, height
+        );
         
-        // Create SVG backend
-        let root = SVGBackend::with_string(&mut buffer, (width, height)).into_drawing_area();
+        // Add title
+        svg.push_str(&format!(
+            r#"<text x="{}" y="30" font-size="20" text-anchor="middle">Bar Chart</text>"#,
+            width / 2
+        ));
         
-        root.fill(&WHITE)
-            .map_err(|e| Error::Internal(format!("Failed to fill background: {}", e)))?;
+        // Add axes
+        svg.push_str(&format!(
+            r#"<line x1="50" y1="50" x2="50" y2="{}" stroke="black" stroke-width="2" />"#,
+            height - 50
+        ));
+        svg.push_str(&format!(
+            r#"<line x1="50" y1="{}" x2="{}" y2="{}" stroke="black" stroke-width="2" />"#,
+            height - 50, width - 50, height - 50
+        ));
+        
+        // Add bars - in a real implementation, this would visualize actual data
+        let bar_width = (width - 100) / entities_data.len().max(1) as u32;
+        for (i, _entity) in entities_data.iter().enumerate() {
+            let x = 50 + i as u32 * bar_width;
+            let bar_height = 50 + (i % 5) * 50;
+            let y = height - 50 - bar_height;
             
-        // Group data by entity_type
-        let mut type_counts: HashMap<String, i32> = HashMap::new();
-        
-        for item in data {
-            if let Some(entity_type) = item["entity_type"].as_str() {
-                *type_counts.entry(entity_type.to_string()).or_insert(0) += 1;
-            }
+            svg.push_str(&format!(
+                r#"<rect x="{}" y="{}" width="{}" height="{}" fill="#5050ff" stroke="black" stroke-width="1" />"#,
+                x, y, bar_width - 10, bar_height
+            ));
+            
+            svg.push_str(&format!(
+                r#"<text x="{}" y="{}" text-anchor="middle" font-size="12">Item {}</text>"#,
+                x + bar_width / 2, height - 30, i + 1
+            ));
         }
         
-        if type_counts.is_empty() {
-            root.draw_text(
-                "No bar chart data available",
-                &("sans-serif", 20),
-                &BLACK,
-                (width as i32 / 2, height as i32 / 2),
-            ).map_err(|e| Error::Internal(format!("Failed to draw text: {}", e)))?;
-        } else {
-            // Sort the data
-            let mut type_data: Vec<(String, i32)> = type_counts.into_iter().collect();
-            type_data.sort_by(|a, b| b.1.cmp(&a.1)); // Sort by count, descending
-            
-            let max_count = type_data.iter().map(|(_, count)| *count).max().unwrap_or(0);
-            
-            // Build the chart
-            let mut chart = ChartBuilder::on(&root)
-                .margin(40)
-                .caption("Entity Types", ("sans-serif", 30))
-                .x_label_area_size(40)
-                .y_label_area_size(60)
-                .build_cartesian_2d(
-                    0..type_data.len(),
-                    0..max_count + (max_count / 5) // Add 20% margin to top
-                )
-                .map_err(|e| Error::Internal(format!("Failed to build chart: {}", e)))?;
-                
-            chart.configure_mesh()
-                .x_labels(type_data.len())
-                .x_label_formatter(&|idx| {
-                    if *idx < type_data.len() {
-                        type_data[*idx].0.clone()
-                    } else {
-                        "".to_string()
-                    }
-                })
-                .draw()
-                .map_err(|e| Error::Internal(format!("Failed to draw mesh: {}", e)))?;
-                
-            // Define colors for the bars
-            let colors = [&BLUE, &RED, &GREEN, &YELLOW, &PURPLE];
-            
-            // Draw the bars
-            chart.draw_series(
-                type_data.iter().enumerate().map(|(i, (_, count))| {
-                    let color = colors[i % colors.len()];
-                    Rectangle::new(
-                        [(i, 0), (i+1, *count)],
-                        color.filled(),
-                    )
-                })
-            )
-            .map_err(|e| Error::Internal(format!("Failed to draw bars: {}", e)))?;
-        }
+        svg.push_str("</svg>");
         
-        root.present().map_err(|e| Error::Internal(format!("Failed to render: {}", e)))?;
-        
-        Ok(buffer.into())
+        Ok(svg.as_bytes().to_vec())
     }
     
     fn render_pie(
         &self,
-        data: &[serde_json::Value],
+        entities_data: &[serde_json::Value],
         width: u32,
         height: u32,
-        options: Option<&HashMap<String, String>>,
+        _options: Option<&HashMap<String, serde_json::Value>>,
     ) -> Result<Vec<u8>, Error> {
-        let mut buffer = Vec::new();
+        // Create a simple SVG pie chart
+        let mut svg = format!(
+            r#"<svg xmlns="http://www.w3.org/2000/svg" width="{}" height="{}" viewBox="0 0 {} {}">"#,
+            width, height, width, height
+        );
         
-        // Create SVG backend
-        let root = SVGBackend::with_string(&mut buffer, (width, height)).into_drawing_area();
+        // Add title
+        svg.push_str(&format!(
+            r#"<text x="{}" y="30" font-size="20" text-anchor="middle">Pie Chart</text>"#,
+            width / 2
+        ));
         
-        root.fill(&WHITE)
-            .map_err(|e| Error::Internal(format!("Failed to fill background: {}", e)))?;
+        // Draw pie chart - in a real implementation, this would visualize actual data
+        let center_x = width as f32 / 2.0;
+        let center_y = height as f32 / 2.0;
+        let radius = (width.min(height) as f32 / 2.0) * 0.6;
+        
+        let colors = ["#ff5050", "#50ff50", "#5050ff", "#ffff50", "#ff50ff"];
+        let mut start_angle = 0.0;
+        
+        for (i, _entity) in entities_data.iter().enumerate().take(5) {
+            let slice_angle = 2.0 * std::f32::consts::PI / entities_data.len().min(5) as f32;
+            let end_angle = start_angle + slice_angle;
             
-        // Group data by entity_type
-        let mut type_counts: HashMap<String, i32> = HashMap::new();
-        
-        for item in data {
-            if let Some(entity_type) = item["entity_type"].as_str() {
-                *type_counts.entry(entity_type.to_string()).or_insert(0) += 1;
-            }
+            // Calculate arc points
+            let start_x = center_x + radius * start_angle.cos();
+            let start_y = center_y + radius * start_angle.sin();
+            let end_x = center_x + radius * end_angle.cos();
+            let end_y = center_y + radius * end_angle.sin();
+            
+            // Determine if this is a large arc (> 180 degrees)
+            let large_arc_flag = if slice_angle > std::f32::consts::PI { 1 } else { 0 };
+            
+            // Create path for pie slice
+            svg.push_str(&format!(
+                r#"<path d="M {},{} L {},{} A {},{} 0 {} 1 {},{} Z" fill="{}" stroke="black" stroke-width="1" />"#,
+                center_x, center_y, start_x, start_y, radius, radius, large_arc_flag, end_x, end_y, colors[i % colors.len()]
+            ));
+            
+            // Add label at the center of the slice
+            let label_angle = start_angle + slice_angle / 2.0;
+            let label_x = center_x + (radius * 0.7) * label_angle.cos();
+            let label_y = center_y + (radius * 0.7) * label_angle.sin();
+            
+            svg.push_str(&format!(
+                r#"<text x="{}" y="{}" text-anchor="middle" font-size="12" fill="white">Item {}</text>"#,
+                label_x, label_y, i + 1
+            ));
+            
+            start_angle = end_angle;
         }
         
-        if type_counts.is_empty() {
-            root.draw_text(
-                "No pie chart data available",
-                &("sans-serif", 20),
-                &BLACK,
-                (width as i32 / 2, height as i32 / 2),
-            ).map_err(|e| Error::Internal(format!("Failed to draw text: {}", e)))?;
-        } else {
-            // Sort the data
-            let mut type_data: Vec<(String, i32)> = type_counts.into_iter().collect();
-            type_data.sort_by(|a, b| b.1.cmp(&a.1)); // Sort by count, descending
-            
-            let total: i32 = type_data.iter().map(|(_, count)| *count).sum();
-            
-            // Define colors for the pie slices
-            let colors = [
-                RGBColor(66, 133, 244),   // Blue
-                RGBColor(234, 67, 53),    // Red
-                RGBColor(52, 168, 83),    // Green  
-                RGBColor(251, 188, 5),    // Yellow
-                RGBColor(103, 58, 183),   // Purple
-                RGBColor(0, 172, 193),    // Cyan
-                RGBColor(255, 64, 129),   // Pink
-            ];
-            
-            // Create a pie chart in the center
-            let center = (width as i32 / 2, height as i32 / 2);
-            let radius = std::cmp::min(width, height) as i32 / 3;
-            
-            let mut current_angle = 0.0;
-            
-            // Draw pie slices
-            for (i, (label, count)) in type_data.iter().enumerate() {
-                let color = colors[i % colors.len()];
-                let ratio = *count as f64 / total as f64;
-                let angle = ratio * 2.0 * std::f64::consts::PI;
-                
-                // Draw the slice
-                let end_angle = current_angle + angle;
-                
-                // Create points for the slice
-                let mut points = vec![(center.0, center.1)];
-                
-                // Add points along the arc
-                let steps = 50;
-                for step in 0..=steps {
-                    let angle = current_angle + (angle * step as f64 / steps as f64);
-                    let x = center.0 + (radius as f64 * angle.cos()) as i32;
-                    let y = center.1 + (radius as f64 * angle.sin()) as i32;
-                    points.push((x, y));
-                }
-                
-                // Draw the slice as a polygon
-                root.draw_series(std::iter::once(Polygon::new(
-                    points,
-                    color.filled(),
-                )))
-                .map_err(|e| Error::Internal(format!("Failed to draw pie slice: {}", e)))?;
-                
-                // Draw label line
-                let mid_angle = current_angle + (angle / 2.0);
-                let label_dist = radius as f64 * 1.3;
-                let label_x = center.0 + (label_dist * mid_angle.cos()) as i32;
-                let label_y = center.1 + (label_dist * mid_angle.sin()) as i32;
-                
-                root.draw_series(std::iter::once(PathElement::new(
-                    vec![
-                        (center.0 + (radius as f64 * 0.8 * mid_angle.cos()) as i32,
-                         center.1 + (radius as f64 * 0.8 * mid_angle.sin()) as i32),
-                        (label_x, label_y)
-                    ],
-                    color.stroke_width(1),
-                )))
-                .map_err(|e| Error::Internal(format!("Failed to draw label line: {}", e)))?;
-                
-                // Draw label text
-                let percentage = (ratio * 100.0).round() as i32;
-                let label_text = format!("{}: {}%", label, percentage);
-                
-                root.draw_series(std::iter::once(Text::new(
-                    label_text,
-                    (label_x, label_y),
-                    ("sans-serif", 12).into_font().color(BLACK),
-                )))
-                .map_err(|e| Error::Internal(format!("Failed to draw label text: {}", e)))?;
-                
-                current_angle = end_angle;
-            }
-        }
+        svg.push_str("</svg>");
         
-        root.present().map_err(|e| Error::Internal(format!("Failed to render: {}", e)))?;
-        
-        Ok(buffer.into())
+        Ok(svg.as_bytes().to_vec())
     }
 }
 
-// PNG Chart Renderer
 pub struct PngChartRenderer;
 
 impl PngChartRenderer {
     pub fn new() -> Self {
-        Self {}
+        Self
     }
 }
 
 impl ChartRenderer for PngChartRenderer {
-    fn render_timeline(
-        &self,
-        data: &[serde_json::Value],
-        width: u32,
-        height: u32,
-        options: Option<&HashMap<String, String>>,
-    ) -> Result<Vec<u8>, Error> {
-        let mut buffer = Vec::new();
-        
-        // Create bitmap backend
-        let root = BitMapBackend::new(&mut buffer, (width, height)).into_drawing_area();
-        
-        // Use the same logic as SVG renderer, just with different backend
-        root.fill(&WHITE)
-            .map_err(|e| Error::Internal(format!("Failed to fill background: {}", e)))?;
-            
-        // Draw a placeholder for now
-        root.draw_text(
-            "Timeline Chart (PNG version)",
-            &("sans-serif", 20),
-            &BLACK,
-            (width as i32 / 2, height as i32 / 2),
-        ).map_err(|e| Error::Internal(format!("Failed to draw text: {}", e)))?;
-        
-        root.present().map_err(|e| Error::Internal(format!("Failed to render: {}", e)))?;
-        
-        Ok(buffer)
+    fn render_timeline(&self, _entities_data: &[serde_json::Value], _width: u32, _height: u32, _options: Option<&HashMap<String, serde_json::Value>>) -> Result<Vec<u8>, Error> {
+        Err(Error::NotImplemented("PNG chart rendering is not yet implemented".to_string()))
     }
     
-    fn render_bar(
-        &self,
-        data: &[serde_json::Value],
-        width: u32,
-        height: u32,
-        options: Option<&HashMap<String, String>>,
-    ) -> Result<Vec<u8>, Error> {
-        let mut buffer = Vec::new();
-        
-        // Create bitmap backend
-        let root = BitMapBackend::new(&mut buffer, (width, height)).into_drawing_area();
-        
-        // Use the same logic as SVG renderer, just with different backend
-        root.fill(&WHITE)
-            .map_err(|e| Error::Internal(format!("Failed to fill background: {}", e)))?;
-            
-        // Draw a placeholder for now
-        root.draw_text(
-            "Bar Chart (PNG version)",
-            &("sans-serif", 20),
-            &BLACK,
-            (width as i32 / 2, height as i32 / 2),
-        ).map_err(|e| Error::Internal(format!("Failed to draw text: {}", e)))?;
-        
-        root.present().map_err(|e| Error::Internal(format!("Failed to render: {}", e)))?;
-        
-        Ok(buffer)
+    fn render_bar(&self, _entities_data: &[serde_json::Value], _width: u32, _height: u32, _options: Option<&HashMap<String, serde_json::Value>>) -> Result<Vec<u8>, Error> {
+        Err(Error::NotImplemented("PNG chart rendering is not yet implemented".to_string()))
     }
     
-    fn render_pie(
-        &self,
-        data: &[serde_json::Value],
-        width: u32,
-        height: u32,
-        options: Option<&HashMap<String, String>>,
-    ) -> Result<Vec<u8>, Error> {
-        let mut buffer = Vec::new();
-        
-        // Create bitmap backend
-        let root = BitMapBackend::new(&mut buffer, (width, height)).into_drawing_area();
-        
-        // Use the same logic as SVG renderer, just with different backend
-        root.fill(&WHITE)
-            .map_err(|e| Error::Internal(format!("Failed to fill background: {}", e)))?;
-            
-        // Draw a placeholder for now
-        root.draw_text(
-            "Pie Chart (PNG version)",
-            &("sans-serif", 20),
-            &BLACK,
-            (width as i32 / 2, height as i32 / 2),
-        ).map_err(|e| Error::Internal(format!("Failed to draw text: {}", e)))?;
-        
-        root.present().map_err(|e| Error::Internal(format!("Failed to render: {}", e)))?;
-        
-        Ok(buffer)
+    fn render_pie(&self, _entities_data: &[serde_json::Value], _width: u32, _height: u32, _options: Option<&HashMap<String, serde_json::Value>>) -> Result<Vec<u8>, Error> {
+        Err(Error::NotImplemented("PNG chart rendering is not yet implemented".to_string()))
     }
 }
 
-// JSON Chart Renderer
 pub struct JsonChartRenderer;
 
 impl JsonChartRenderer {
     pub fn new() -> Self {
-        Self {}
+        Self
     }
 }
 
 impl ChartRenderer for JsonChartRenderer {
-    fn render_timeline(
-        &self,
-        data: &[serde_json::Value],
-        _width: u32,
-        _height: u32,
-        _options: Option<&HashMap<String, String>>,
-    ) -> Result<Vec<u8>, Error> {
-        // Create a JSON representation of the timeline data
-        let mut timeline_data = Vec::new();
-        
-        for item in data {
-            if let (Some(created_at), Some(entity_type), Some(value), Some(id)) = (
-                item["created_at"].as_str(),
-                item["entity_type"].as_str(),
-                item["value"].as_str(),
-                item["id"].as_str(),
-            ) {
-                if let Ok(date) = chrono::DateTime::parse_from_rfc3339(created_at) {
-                    timeline_data.push(serde_json::json!({
-                        "id": id,
-                        "date": date.to_rfc3339(),
-                        "entity_type": entity_type,
-                        "value": value,
-                        "metadata": item.get("metadata").unwrap_or(&serde_json::json!({})),
-                    }));
-                }
-            }
-        }
-        
+    fn render_timeline(&self, entities_data: &[serde_json::Value], _width: u32, _height: u32, _options: Option<&HashMap<String, serde_json::Value>>) -> Result<Vec<u8>, Error> {
         let result = serde_json::json!({
-            "type": "timeline",
-            "data": timeline_data,
+            "chart_type": "timeline",
+            "data": entities_data
         });
         
-        serde_json::to_vec(&result)
-            .map_err(|e| Error::Internal(format!("Failed to serialize chart data: {}", e)))
+        let json = serde_json::to_string_pretty(&result)
+            .map_err(|e| Error::Internal(format!("Failed to serialize chart data: {}", e)))?;
+        
+        Ok(json.as_bytes().to_vec())
     }
     
-    fn render_bar(
-        &self,
-        data: &[serde_json::Value],
-        _width: u32,
-        _height: u32,
-        _options: Option<&HashMap<String, String>>,
-    ) -> Result<Vec<u8>, Error> {
-        // Group data by entity_type
-        let mut type_counts: HashMap<String, i32> = HashMap::new();
-        
-        for item in data {
-            if let Some(entity_type) = item["entity_type"].as_str() {
-                *type_counts.entry(entity_type.to_string()).or_insert(0) += 1;
-            }
-        }
-        
-        // Convert to array of objects
-        let bar_data: Vec<serde_json::Value> = type_counts.iter()
-            .map(|(key, value)| {
-                serde_json::json!({
-                    "category": key,
-                    "value": value,
-                })
-            })
-            .collect();
-        
+    fn render_bar(&self, entities_data: &[serde_json::Value], _width: u32, _height: u32, _options: Option<&HashMap<String, serde_json::Value>>) -> Result<Vec<u8>, Error> {
         let result = serde_json::json!({
-            "type": "bar",
-            "data": bar_data,
+            "chart_type": "bar",
+            "data": entities_data
         });
         
-        serde_json::to_vec(&result)
-            .map_err(|e| Error::Internal(format!("Failed to serialize chart data: {}", e)))
+        let json = serde_json::to_string_pretty(&result)
+            .map_err(|e| Error::Internal(format!("Failed to serialize chart data: {}", e)))?;
+        
+        Ok(json.as_bytes().to_vec())
     }
     
-    fn render_pie(
-        &self,
-        data: &[serde_json::Value],
-        _width: u32,
-        _height: u32,
-        _options: Option<&HashMap<String, String>>,
-    ) -> Result<Vec<u8>, Error> {
-        // Group data by entity_type
-        let mut type_counts: HashMap<String, i32> = HashMap::new();
-        
-        for item in data {
-            if let Some(entity_type) = item["entity_type"].as_str() {
-                *type_counts.entry(entity_type.to_string()).or_insert(0) += 1;
-            }
-        }
-        
-        // Convert to array of objects
-        let pie_data: Vec<serde_json::Value> = type_counts.iter()
-            .map(|(key, value)| {
-                serde_json::json!({
-                    "label": key,
-                    "value": value,
-                })
-            })
-            .collect();
-        
+    fn render_pie(&self, entities_data: &[serde_json::Value], _width: u32, _height: u32, _options: Option<&HashMap<String, serde_json::Value>>) -> Result<Vec<u8>, Error> {
         let result = serde_json::json!({
-            "type": "pie",
-            "data": pie_data,
+            "chart_type": "pie",
+            "data": entities_data
         });
         
-        serde_json::to_vec(&result)
-            .map_err(|e| Error::Internal(format!("Failed to serialize chart data: {}", e)))
+        let json = serde_json::to_string_pretty(&result)
+            .map_err(|e| Error::Internal(format!("Failed to serialize chart data: {}", e)))?;
+        
+        Ok(json.as_bytes().to_vec())
     }
 }

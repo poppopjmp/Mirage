@@ -1,0 +1,86 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api-gateway
+  namespace: mirage
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: api-gateway
+  template:
+    metadata:
+      labels:
+        app: api-gateway
+    spec:
+      containers:
+      - name: api-gateway
+        image: ghcr.io/van1sh/Mirage/api-gateway:latest
+        ports:
+        - containerPort: 8080
+        env:
+        - name: AUTH_SERVICE_URL
+          value: "http://auth-service:8081"
+        - name: USER_MANAGEMENT_URL
+          value: "http://user-management-service:8082"
+        - name: SCAN_ORCHESTRATION_URL
+          value: "http://scan-orchestration-service:8083"
+        - name: MODULE_REGISTRY_URL
+          value: "http://module-registry-service:8084"
+        - name: DATA_COLLECTION_URL
+          value: "http://data-collection-service:8085"
+        - name: DATA_STORAGE_URL
+          value: "http://data-storage-service:8086"
+        - name: CORRELATION_ENGINE_URL
+          value: "http://correlation-engine-service:8087"
+        - name: VISUALIZATION_URL
+          value: "http://visualization-service:8088"
+        - name: REPORTING_URL
+          value: "http://reporting-service:8089"
+        - name: NOTIFICATION_URL
+          value: "http://notification-service:8090"
+        - name: INTEGRATION_URL
+          value: "http://integration-service:8091"
+        - name: CONFIGURATION_URL
+          value: "http://configuration-service:8092"
+        - name: DISCOVERY_URL
+          value: "http://discovery-service:8093"
+        - name: JWT_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: jwt-secret
+              key: secret
+        - name: RATE_LIMIT_REQUESTS_PER_MINUTE
+          value: "60"
+        resources:
+          limits:
+            cpu: "1"
+            memory: "512Mi"
+          requests:
+            cpu: "0.5"
+            memory: "256Mi"
+        livenessProbe:
+          httpGet:
+            path: /api/v1/health
+            port: 8080
+          initialDelaySeconds: 30
+          periodSeconds: 15
+        readinessProbe:
+          httpGet:
+            path: /api/v1/health
+            port: 8080
+          initialDelaySeconds: 5
+          periodSeconds: 10
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: api-gateway
+  namespace: mirage
+spec:
+  selector:
+    app: api-gateway
+  ports:
+  - port: 8080
+    targetPort: 8080
+  type: ClusterIP

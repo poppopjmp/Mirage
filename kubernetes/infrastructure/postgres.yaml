@@ -1,0 +1,93 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: postgres
+  namespace: mirage
+spec:
+  serviceName: postgres
+  replicas: 1
+  selector:
+    matchLabels:
+      app: postgres
+  template:
+    metadata:
+      labels:
+        app: postgres
+    spec:
+      containers:
+      - name: postgres
+        image: postgres:14
+        ports:
+        - containerPort: 5432
+        env:
+        - name: POSTGRES_USER
+          valueFrom:
+            secretKeyRef:
+              name: database-secrets
+              key: postgres-user
+        - name: POSTGRES_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: database-secrets
+              key: postgres-password
+        - name: POSTGRES_MULTIPLE_DATABASES
+          value: "mirage_auth,mirage_users"
+        volumeMounts:
+        - name: postgres-data
+          mountPath: /var/lib/postgresql/data
+        - name: init-script
+          mountPath: /docker-entrypoint-initdb.d
+      volumes:
+      - name: init-script
+        configMap:
+          name: postgres-init-script
+  volumeClaimTemplates:
+  - metadata:
+      name: postgres-data
+    spec:
+      accessModes: [ "ReadWriteOnce" ]
+      resources:
+        requests:
+          storage: 20Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres
+  namespace: mirage
+spec:
+  selector:
+    app: postgres
+  ports:
+  - port: 5432
+    targetPort: 5432
+  type: ClusterIP
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: postgres-init-script
+  namespace: mirage
+data:
+  init-multiple-postgres-dbs.sh: |
+    #!/bin/bash
+    
+    set -e
+    set -u
+    
+    function create_user_and_database() {
+        local database=$1
+        echo "  Creating database '$database'"
+        psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" <<-EOSQL
+            CREATE DATABASE $database;
+            GRANT ALL PRIVILEGES ON DATABASE $database TO $POSTGRES_USER;
+    EOSQL
+    }
+    
+    if [ -n "$POSTGRES_MULTIPLE_DATABASES" ]; then
+        echo "Multiple database creation requested: $POSTGRES_MULTIPLE_DATABASES"
+        for db in $(echo $POSTGRES_MULTIPLE_DATABASES | tr ',' ' '); do
+            create_user_and_database $db
+        done
+        echo "Multiple databases created"
+    fi

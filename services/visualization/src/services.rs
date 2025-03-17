@@ -1,7 +1,8 @@
 use crate::config::AppConfig;
 use crate::models::{
     GraphVisualizationRequest, ChartVisualizationRequest, ReportGenerationRequest,
-    GraphData, GraphNode, GraphEdge, VisualizationResult
+    GraphData, GraphNode, GraphEdge, VisualizationResult, Visualization, VisualizationResponse, VisualizationType, 
+    ChartType
 };
 use crate::renderers::graph::GraphRenderer;
 use crate::renderers::chart::ChartRenderer;
@@ -13,11 +14,50 @@ use chrono::Utc;
 use std::path::Path;
 use std::fs;
 use base64::{Engine as _, engine::general_purpose};
+use std::collections::HashMap;
+use tokio::sync::Mutex;
+
+/// Memory-based visualization store for demonstration purposes
+/// In a real implementation, this would use a database
+#[derive(Clone)]
+pub struct VisualizationStore {
+    visualizations: Arc<Mutex<HashMap<Uuid, Visualization>>>,
+}
+
+impl VisualizationStore {
+    pub fn new() -> Self {
+        Self {
+            visualizations: Arc::new(Mutex::new(HashMap::new())),
+        }
+    }
+
+    pub async fn add(&self, visualization: Visualization) -> Result<(), mirage_common::Error> {
+        let mut visualizations = self.visualizations.lock().await;
+        visualizations.insert(visualization.id, visualization);
+        Ok(())
+    }
+
+    pub async fn get(&self, id: &Uuid) -> Result<Visualization, mirage_common::Error> {
+        let visualizations = self.visualizations.lock().await;
+        visualizations.get(id)
+            .cloned()
+            .ok_or_else(|| Error::NotFound(format!("Visualization with ID {} not found", id)))
+    }
+
+    pub async fn list(&self) -> Result<Vec<Visualization>, mirage_common::Error> {
+        let visualizations = self.visualizations.lock().await;
+        Ok(visualizations.values().cloned().collect())
+    }
+}
 
 #[derive(Clone)]
 pub struct VisualizationService {
     client: Arc<Client>,
     config: Arc<AppConfig>,
+    store: VisualizationStore,
+    correlation_engine_url: String,
+    http_client: reqwest::Client,
+    base_url: String,
 }
 
 impl VisualizationService {
@@ -31,6 +71,10 @@ impl VisualizationService {
         Self {
             client: Arc::new(client),
             config: Arc::new(config),
+            store: VisualizationStore::new(),
+            correlation_engine_url: config.correlation_service.url.clone(),
+            http_client: client.clone(),
+            base_url: "http://localhost:8088".to_string(),
         }
     }
     
@@ -308,5 +352,155 @@ impl VisualizationService {
         }
         
         Ok(entities_data)
+    }
+
+    /// Create a graph-based visualization
+    pub async fn create_graph_visualization(&self, request: GraphVisualizationRequest) -> Result<VisualizationResponse, mirage_common::Error> {
+        // Validate data source existence with the data storage service
+        self.validate_data_source(&request.data_source_id).await?;
+        
+        // Create visualization object
+        let id = Uuid::new_v4();
+        let now = Utc::now();
+        
+        // Convert request to config JSON
+        let config = serde_json::json!({
+            "query": request.query,
+            "entity_types": request.entity_types,
+            "relationship_types": request.relationship_types,
+            "max_nodes": request.max_nodes.unwrap_or(100),
+            "max_depth": request.max_depth.unwrap_or(3),
+            "layout": request.layout.unwrap_or_else(|| "force".to_string()),
+            "style_options": request.style_options,
+        });
+        
+        let visualization = Visualization {
+            id,
+            title: request.title,
+            description: request.description,
+            visualization_type: VisualizationType::Graph,
+            data_source_id: request.data_source_id,
+            created_at: now,
+            updated_at: now,
+            created_by: None, // This would come from auth context in real impl
+            config,
+            metadata: request.metadata.unwrap_or_default(),
+            thumbnail_url: None,
+        };
+        
+        // Save visualization
+        self.store.add(visualization.clone()).await?;
+        
+        // Get render URL
+        let render_url = format!("{}/api/v1/visualizations/render/{}", self.base_url, id);
+        
+        // Return response
+        let response = VisualizationResponse {
+            id: visualization.id,
+            title: visualization.title,
+            description: visualization.description,
+            visualization_type: visualization.visualization_type,
+            data_source_id: visualization.data_source_id,
+            created_at: visualization.created_at,
+            updated_at: visualization.updated_at,
+            created_by: visualization.created_by,
+            config: visualization.config,
+            thumbnail_url: visualization.thumbnail_url,
+            render_url,
+        };
+        
+        Ok(response)
+    }
+
+    /// Create a chart-based visualization
+    pub async fn create_chart_visualization(&self, request: ChartVisualizationRequest) -> Result<VisualizationResponse, mirage_common::Error> {
+        // Validate data source existence with the data storage service
+        self.validate_data_source(&request.data_source_id).await?;
+        
+        // Create visualization object
+        let id = Uuid::new_v4();
+        let now = Utc::now();
+        
+        // Convert request to config JSON
+        let config = serde_json::json!({
+            "query": request.query,
+            "chart_type": request.chart_type,
+            "x_axis": request.x_axis,
+            "y_axis": request.y_axis,
+            "filters": request.filters,
+            "style_options": request.style_options,
+        });
+        
+        let visualization = Visualization {
+            id,
+            title: request.title,
+            description: request.description,
+            visualization_type: VisualizationType::Chart,
+            data_source_id: request.data_source_id,
+            created_at: now,
+            updated_at: now,
+            created_by: None, // This would come from auth context in real impl
+            config,
+            metadata: request.metadata.unwrap_or_default(),
+            thumbnail_url: None,
+        };
+        
+        // Save visualization
+        self.store.add(visualization.clone()).await?;
+        
+        // Get render URL
+        let render_url = format!("{}/api/v1/visualizations/render/{}", self.base_url, id);
+        
+        // Return response
+        let response = VisualizationResponse {
+            id: visualization.id,
+            title: visualization.title,
+            description: visualization.description,
+            visualization_type: visualization.visualization_type,
+            data_source_id: visualization.data_source_id,
+            created_at: visualization.created_at,
+            updated_at: visualization.updated_at,
+            created_by: visualization.created_by,
+            config: visualization.config,
+            thumbnail_url: visualization.thumbnail_url,
+            render_url,
+        };
+        
+        Ok(response)
+    }
+
+    /// Get a visualization by ID
+    pub async fn get_visualization(&self, id: &Uuid) -> Result<VisualizationResponse, mirage_common::Error> {
+        let visualization = self.store.get(id).await?;
+        
+        // Get render URL
+        let render_url = format!("{}/api/v1/visualizations/render/{}", self.base_url, id);
+        
+        // Return response
+        let response = VisualizationResponse {
+            id: visualization.id,
+            title: visualization.title,
+            description: visualization.description,
+            visualization_type: visualization.visualization_type,
+            data_source_id: visualization.data_source_id,
+            created_at: visualization.created_at,
+            updated_at: visualization.updated_at,
+            created_by: visualization.created_by,
+            config: visualization.config,
+            thumbnail_url: visualization.thumbnail_url,
+            render_url,
+        };
+        
+        Ok(response)
+    }
+
+    /// Helper method to validate data source exists
+    async fn validate_data_source(&self, data_source_id: &Uuid) -> Result<(), mirage_common::Error> {
+        // In a real implementation, this would call the data storage service
+        // For now, just simulate the validation
+        if data_source_id.as_u128() % 10 == 0 {
+            return Err(Error::NotFound(format!("Data source with ID {} not found", data_source_id)));
+        }
+        Ok(())
     }
 }

@@ -1,238 +1,293 @@
 version: '3.8'
 
 services:
-  # API Gateway
   api-gateway:
-    image: nginx:alpine
+    image: ghcr.io/${GITHUB_REPOSITORY}/api-gateway:latest
     ports:
-      - "80:80"
-      - "8081:8081"  # Monitoring port
-    volumes:
-      - ./config/nginx/default.conf:/etc/nginx/conf.d/default.conf
-      - ./config/nginx/nginx.conf:/etc/nginx/nginx.conf
-      - ./logs/nginx:/var/log/nginx
-      - nginx-cache:/var/cache/nginx
+      - "8080:8080"
     depends_on:
       - auth-service
-      - user-management
-      - module-registry
-      - scan-orchestration
-      - scanner-coordinator
-      - data-collection
-      - data-storage
-      - correlation-engine
-      - visualization
-      - reporting
-      - notification
-      - configuration-service
+      - user-management-service
+      - scan-orchestration-service
+    environment:
+      - AUTH_SERVICE_URL=http://auth-service:8081
+      - USER_SERVICE_URL=http://user-management-service:8082
+      - SCAN_SERVICE_URL=http://scan-orchestration-service:8083
+      - MODULE_REGISTRY_URL=http://module-registry-service:8084
+      - DATA_COLLECTION_URL=http://data-collection-service:8085
+      - DATA_STORAGE_URL=http://data-storage-service:8086
+      - CORRELATION_ENGINE_URL=http://correlation-engine-service:8087
+      - VISUALIZATION_URL=http://visualization-service:8088
+      - REPORTING_URL=http://reporting-service:8089
+      - NOTIFICATION_URL=http://notification-service:8090
+      - INTEGRATION_URL=http://integration-service:8091
+      - CONFIGURATION_URL=http://configuration-service:8092
+      - DISCOVERY_URL=http://discovery-service:8093
+      - JWT_SECRET=${JWT_SECRET}
+      - RATE_LIMIT_REQUESTS_PER_MINUTE=60
+    networks:
+      - mirage-network
     restart: unless-stopped
-    networks:
-      - mirage-network
 
-  # Microservices
   auth-service:
-    build: 
-      context: .
-      dockerfile: services/auth/Dockerfile
-    environment:
-      - RUST_LOG=info
-      - DATABASE_URL=postgres://postgres:password@postgres:5432/mirage_auth
-    depends_on:
-      - postgres
-      - redis
-    networks:
-      - mirage-network
-
-  user-management:
-    build:
-      context: . 
-      dockerfile: services/user-management/Dockerfile
-    environment:
-      - RUST_LOG=info
-      - DATABASE_URL=postgres://postgres:password@postgres:5432/mirage_users
-    depends_on:
-      - postgres
-      - redis
-    networks:
-      - mirage-network
-
-  module-registry:
-    build:
-      context: . 
-      dockerfile: services/module-registry/Dockerfile
-    environment:
-      - RUST_LOG=info
-      - DATABASE_URL=postgres://postgres:password@postgres:5432/mirage_modules
-    volumes:
-      - module-data:/app/modules
-    depends_on:
-      - postgres
-    networks:
-      - mirage-network
-
-  scan-orchestration:
-    build:
-      context: . 
-      dockerfile: services/scan-orchestration/Dockerfile
-    environment:
-      - RUST_LOG=info
-      - DATABASE_URL=postgres://postgres:password@postgres:5432/mirage_scans
-    depends_on:
-      - postgres
-      - redis
-    networks:
-      - mirage-network
-
-  scanner-coordinator:
-    build:
-      context: . 
-      dockerfile: services/scanner-coordinator/Dockerfile
-    environment:
-      - RUST_LOG=info
-      - DATABASE_URL=postgres://postgres:password@postgres:5432/mirage_scanner
-    depends_on:
-      - postgres
-      - redis
-    networks:
-      - mirage-network
-
-  data-collection:
-    build:
-      context: . 
-      dockerfile: services/data-collection/Dockerfile
-    environment:
-      - RUST_LOG=info
-      - DATABASE_URL=postgres://postgres:password@postgres:5432/mirage_collection
-    depends_on:
-      - postgres
-      - redis
-    networks:
-      - mirage-network
-
-  data-storage:
-    build:
-      context: . 
-      dockerfile: services/data-storage/Dockerfile
-    environment:
-      - RUST_LOG=info
-      - DATABASE_URL=postgres://postgres:password@postgres:5432/mirage_storage
-    volumes:
-      - storage-data:/app/data
-    depends_on:
-      - postgres
-    networks:
-      - mirage-network
-
-  correlation-engine:
-    build:
-      context: . 
-      dockerfile: services/correlation-engine/Dockerfile
-    environment:
-      - RUST_LOG=info
-      - DATABASE_URL=postgres://postgres:password@postgres:5432/mirage_correlation
-    depends_on:
-      - postgres
-      - redis
-    networks:
-      - mirage-network
-
-  visualization:
-    build:
-      context: . 
-      dockerfile: services/visualization/Dockerfile
-    environment:
-      - RUST_LOG=info
-    depends_on:
-      - data-storage
-    networks:
-      - mirage-network
-
-  reporting:
-    build:
-      context: . 
-      dockerfile: services/reporting/Dockerfile
-    environment:
-      - RUST_LOG=info
-    depends_on:
-      - data-storage
-    networks:
-      - mirage-network
-
-  notification:
-    build:
-      context: . 
-      dockerfile: services/notification/Dockerfile
-    environment:
-      - RUST_LOG=info
-      - DATABASE_URL=postgres://postgres:password@postgres:5432/mirage_notifications
-    depends_on:
-      - postgres
-      - redis
-    networks:
-      - mirage-network
-    
-  configuration-service:
-    build:
-      context: . 
-      dockerfile: services/configuration-service/Dockerfile
-    environment:
-      - RUST_LOG=info
-      - DATABASE_URL=postgres://postgres:password@postgres:5432/mirage_config
-    depends_on:
-      - postgres
-      - redis
-    networks:
-      - mirage-network
-
-  discovery-service:
-    build: 
-      context: .
-      dockerfile: services/discovery-service/Dockerfile
-    environment:
-      - RUST_LOG=info
-      - REDIS_URL=redis://redis:6379/0
-      - SERVER_PORT=8007
+    image: ghcr.io/${GITHUB_REPOSITORY}/auth-service:latest
     ports:
-      - "8007:8007"
+      - "8081:8081"
     depends_on:
+      - postgres
       - redis
+    environment:
+      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/mirage_auth
+      - REDIS_URL=redis://redis:6379
+      - JWT_SECRET=${JWT_SECRET}
+      - JWT_EXPIRATION=3600
     networks:
       - mirage-network
+    restart: unless-stopped
+
+  user-management-service:
+    image: ghcr.io/${GITHUB_REPOSITORY}/user-management-service:latest
+    ports:
+      - "8082:8082"
+    depends_on:
+      - postgres
+    environment:
+      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/mirage_users
+    networks:
+      - mirage-network
+    restart: unless-stopped
+
+  scan-orchestration-service:
+    image: ghcr.io/${GITHUB_REPOSITORY}/scan-orchestration-service:latest
+    ports:
+      - "8083:8083"
+    depends_on:
+      - mongodb
+      - redis
+      - data-collection-service
+    environment:
+      - MONGODB_URI=mongodb://mongodb:27017/mirage_scans
+      - REDIS_URL=redis://redis:6379
+      - DATA_COLLECTION_URL=http://data-collection-service:8084
+    networks:
+      - mirage-network
+    restart: unless-stopped
+
+  module-registry-service:
+    image: ghcr.io/${GITHUB_REPOSITORY}/module-registry-service:latest
+    ports:
+      - "8084:8084"
+    depends_on:
+      - mongodb
+    environment:
+      - MONGODB_URI=mongodb://mongodb:27017/mirage_modules
+    networks:
+      - mirage-network
+    restart: unless-stopped
+
+  data-collection-service:
+    image: ghcr.io/${GITHUB_REPOSITORY}/data-collection-service:latest
+    ports:
+      - "8085:8085"
+    depends_on:
+      - module-registry-service
+      - data-storage-service
+    environment:
+      - MODULE_REGISTRY_URL=http://module-registry-service:8084
+      - DATA_STORAGE_URL=http://data-storage-service:8086
+    networks:
+      - mirage-network
+    restart: unless-stopped
+
+  data-storage-service:
+    image: ghcr.io/${GITHUB_REPOSITORY}/data-storage-service:latest
+    ports:
+      - "8086:8086"
+    depends_on:
+      - mongodb
+      - elasticsearch
+    environment:
+      - MONGODB_URI=mongodb://mongodb:27017/mirage_data
+      - ELASTICSEARCH_URL=http://elasticsearch:9200
+    networks:
+      - mirage-network
+    restart: unless-stopped
+
+  correlation-engine-service:
+    image: ghcr.io/${GITHUB_REPOSITORY}/correlation-engine-service:latest
+    ports:
+      - "8087:8087"
+    depends_on:
+      - neo4j
+      - data-storage-service
+    environment:
+      - NEO4J_URI=bolt://neo4j:7687
+      - NEO4J_USERNAME=neo4j
+      - NEO4J_PASSWORD=${NEO4J_PASSWORD}
+      - DATA_STORAGE_URL=http://data-storage-service:8086
+    networks:
+      - mirage-network
+    restart: unless-stopped
+
+  visualization-service:
+    image: ghcr.io/${GITHUB_REPOSITORY}/visualization-service:latest
+    ports:
+      - "8088:8088"
+    depends_on:
+      - correlation-engine-service
+    environment:
+      - CORRELATION_ENGINE_URL=http://correlation-engine-service:8087
+    networks:
+      - mirage-network
+    restart: unless-stopped
+
+  reporting-service:
+    image: ghcr.io/${GITHUB_REPOSITORY}/reporting-service:latest
+    ports:
+      - "8089:8089"
+    depends_on:
+      - data-storage-service
+    environment:
+      - DATA_STORAGE_URL=http://data-storage-service:8086
+    networks:
+      - mirage-network
+    restart: unless-stopped
+
+  notification-service:
+    image: ghcr.io/${GITHUB_REPOSITORY}/notification-service:latest
+    ports:
+      - "8090:8090"
+    depends_on:
+      - redis
+    environment:
+      - REDIS_URL=redis://redis:6379
+      - SMTP_HOST=${SMTP_HOST}
+      - SMTP_PORT=${SMTP_PORT}
+      - SMTP_USERNAME=${SMTP_USERNAME}
+      - SMTP_PASSWORD=${SMTP_PASSWORD}
+    networks:
+      - mirage-network
+    restart: unless-stopped
 
   integration-service:
+    image: ghcr.io/${GITHUB_REPOSITORY}/integration-service:latest
     build:
       context: .
-      dockerfile: services/integration-service/Dockerfile
-    environment:
-      - RUST_LOG=info
-      - MIRAGE_INTEGRATION_DATABASE__URL=postgres://postgres:password@postgres:5432/mirage_integrations
-      - MIRAGE_INTEGRATION_REDIS__URI=redis://redis:6379/0
+      dockerfile: docker/services/integration-service/Dockerfile
     ports:
-      - "8008:8008"
-    depends_on:
-      - postgres
-      - redis
+      - "8091:8091"
+    environment:
+      - DATA_STORAGE_URL=http://data-storage-service:8086
+      - LOG_LEVEL=info
     networks:
       - mirage-network
+    restart: unless-stopped
 
-  # Databases and caching
-  postgres:
-    image: postgres:14-alpine
+  configuration-service:
+    image: ghcr.io/${GITHUB_REPOSITORY}/configuration-service:latest
+    build:
+      context: .
+      dockerfile: docker/services/configuration-service/Dockerfile
+    ports:
+      - "8092:8092"
+    volumes:
+      - config-data:/config
     environment:
-      - POSTGRES_PASSWORD=password
+      - LOG_LEVEL=info
+    networks:
+      - mirage-network
+    restart: unless-stopped
+
+  discovery-service:
+    image: ghcr.io/${GITHUB_REPOSITORY}/discovery-service:latest
+    build:
+      context: .
+      dockerfile: docker/services/discovery-service/Dockerfile
+    ports:
+      - "8093:8093"
+    environment:
+      - LOG_LEVEL=info
+      - SERVICES_JSON=/app/config/services.json
+    networks:
+      - mirage-network
+    restart: unless-stopped
+
+  web-ui:
+    image: ghcr.io/${GITHUB_REPOSITORY}/web-ui:latest
+    build:
+      context: .
+      dockerfile: docker/services/web-ui/Dockerfile
+    ports:
+      - "3000:80"
+    environment:
+      - API_URL=http://api-gateway:8080
+    depends_on:
+      - api-gateway
+    networks:
+      - mirage-network
+    restart: unless-stopped
+
+  postgres:
+    image: postgres:14
+    ports:
+      - "5432:5432"
+    environment:
       - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_MULTIPLE_DATABASES=mirage_auth,mirage_users
     volumes:
       - postgres-data:/var/lib/postgresql/data
-      - ./scripts/init-postgres.sh:/docker-entrypoint-initdb.d/init-postgres.sh
+      - ./scripts/init-multiple-postgres-dbs.sh:/docker-entrypoint-initdb.d/init-multiple-postgres-dbs.sh
     networks:
       - mirage-network
+    restart: unless-stopped
+
+  mongodb:
+    image: mongo:5
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb-data:/data/db
+    networks:
+      - mirage-network
+    restart: unless-stopped
+
+  neo4j:
+    image: neo4j:4.4
+    ports:
+      - "7474:7474"
+      - "7687:7687"
+    environment:
+      - NEO4J_AUTH=neo4j/${NEO4J_PASSWORD}
+    volumes:
+      - neo4j-data:/data
+    networks:
+      - mirage-network
+    restart: unless-stopped
+
+  elasticsearch:
+    image: elasticsearch:7.17.0
+    ports:
+      - "9200:9200"
+      - "9300:9300"
+    environment:
+      - discovery.type=single-node
+      - ES_JAVA_OPTS=-Xms512m -Xmx512m
+    volumes:
+      - elasticsearch-data:/usr/share/elasticsearch/data
+    networks:
+      - mirage-network
+    restart: unless-stopped
 
   redis:
-    image: redis:alpine
+    image: redis:6
+    ports:
+      - "6379:6379"
     volumes:
       - redis-data:/data
     networks:
       - mirage-network
+    restart: unless-stopped
 
 networks:
   mirage-network:
@@ -240,7 +295,8 @@ networks:
 
 volumes:
   postgres-data:
+  mongodb-data:
+  neo4j-data:
+  elasticsearch-data:
   redis-data:
-  module-data:
-  storage-data:
-  nginx-cache:
+  config-data:

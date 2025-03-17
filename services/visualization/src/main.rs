@@ -1,16 +1,11 @@
-use actix_cors::Cors;
-use actix_web::{
-    web, App, HttpServer, middleware::Logger,
-    HttpResponse, Responder,
-};
-use actix_files as fs;
+use actix_web::{web, App, HttpServer, middleware::Logger, HttpResponse, Responder};
 use tracing::info;
 
-mod config;
 mod handlers;
 mod models;
 mod services;
-mod renderers;
+mod repositories;
+mod error;
 
 async fn health_check() -> impl Responder {
     HttpResponse::Ok().json(serde_json::json!({ "status": "ok" }))
@@ -22,52 +17,54 @@ async fn main() -> std::io::Result<()> {
     tracing_subscriber::fmt::init();
     
     // Load configuration
-    let config = match config::load_config() {
-        Ok(config) => config,
-        Err(e) => {
-            tracing::error!("Failed to load config: {}", e);
-            return Err(std::io::Error::new(
-                std::io::ErrorKind::Other,
-                "Failed to load configuration",
-            ));
+    let config = match std::env::var("CONFIG_PATH") {
+        Ok(path) => {
+            let config_str = std::fs::read_to_string(path)?;
+            serde_json::from_str(&config_str).expect("Failed to parse configuration")
+        },
+        Err(_) => {
+            tracing::warn!("CONFIG_PATH not set, using default configuration");
+            serde_json::json!({
+                "server": {
+                    "host": "0.0.0.0",
+                    "port": 8088
+                },
+                "correlation_engine": {
+                    "url": "http://correlation-engine-service:8087"
+                }
+            })
         }
     };
     
-    // Initialize HTTP client for services
+    // Create HTTP client for external communication
     let http_client = reqwest::Client::builder()
         .timeout(std::time::Duration::from_secs(30))
         .build()
         .expect("Failed to create HTTP client");
-
+    
     // Initialize visualization service
     let viz_service = web::Data::new(services::VisualizationService::new(
         http_client,
-        config.clone()
+        config["correlation_engine"]["url"].as_str().unwrap_or("http://localhost:8087").to_string()
     ));
 
-    info!("Starting Visualization Service on port {}", config.server.port);
+    let port = config["server"]["port"].as_u64().unwrap_or(8088);
+    let host = config["server"]["host"].as_str().unwrap_or("0.0.0.0");
+    
+    info!("Starting Visualization Service on {}:{}", host, port);
 
     HttpServer::new(move || {
-        let cors = Cors::default()
-            .allow_any_origin()
-            .allow_any_method()
-            .allow_any_header()
-            .max_age(3600);
-
         App::new()
-            .wrap(cors)
-            .wrap(Logger::default())
             .app_data(viz_service.clone())
             .app_data(web::Data::new(config.clone()))
+            .wrap(Logger::default())
             .service(
                 web::scope("/api/v1")
                     .route("/health", web::get().to(health_check))
                     .service(handlers::visualization_routes())
             )
-            .service(fs::Files::new("/static", "./static").show_files_listing())
-            .service(fs::Files::new("/", "./static/templates").index_file("index.html"))
     })
-    .bind(format!("0.0.0.0:{}", config.server.port))?
+    .bind(format!("{}:{}", host, port))?
     .run()
     .await
 }

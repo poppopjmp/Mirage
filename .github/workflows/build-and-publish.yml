@@ -1,0 +1,166 @@
+name: Build and Publish
+
+on:
+  push:
+    branches: [ main ]
+    tags: [ 'v*' ]
+  pull_request:
+    branches: [ main ]
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        service:
+          - auth-service
+          - user-management-service
+          - scan-orchestration-service
+          - module-registry-service
+          - data-collection-service
+          - data-storage-service
+          - correlation-engine-service
+          - visualization-service
+          - reporting-service
+          - notification-service
+          - integration-service
+          - configuration-service
+          - discovery-service
+          - api-gateway
+          - web-ui
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Set up Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          override: true
+          components: rustfmt, clippy
+
+      - name: Cargo cache
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-${{ matrix.service }}-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Check if service directory exists
+        id: check_dir
+        run: |
+          if [ -d "services/${{ matrix.service }}" ]; then
+            echo "directory_exists=true" >> $GITHUB_OUTPUT
+          else
+            echo "directory_exists=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Build service
+        if: steps.check_dir.outputs.directory_exists == 'true'
+        working-directory: services/${{ matrix.service }}
+        run: cargo build --release
+
+      - name: Run tests
+        if: steps.check_dir.outputs.directory_exists == 'true'
+        working-directory: services/${{ matrix.service }}
+        run: cargo test --release
+
+      - name: Lint with clippy
+        if: steps.check_dir.outputs.directory_exists == 'true'
+        working-directory: services/${{ matrix.service }}
+        run: cargo clippy -- -D warnings
+
+      - name: Upload artifacts
+        if: steps.check_dir.outputs.directory_exists == 'true'
+        uses: actions/upload-artifact@v3
+        with:
+          name: ${{ matrix.service }}-binary
+          path: services/${{ matrix.service }}/target/release/${{ matrix.service }}
+          retention-days: 1
+
+  build-and-push-images:
+    needs: build-and-test
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    
+    strategy:
+      matrix:
+        service:
+          - auth-service
+          - user-management-service
+          - scan-orchestration-service
+          - module-registry-service
+          - data-collection-service
+          - data-storage-service
+          - correlation-engine-service
+          - visualization-service
+          - reporting-service
+          - notification-service
+          - integration-service
+          - configuration-service
+          - discovery-service
+          - api-gateway
+          - web-ui
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+      
+      - name: Check if service directory exists
+        id: check_dir
+        run: |
+          if [ -d "services/${{ matrix.service }}" ]; then
+            echo "directory_exists=true" >> $GITHUB_OUTPUT
+          else
+            echo "directory_exists=false" >> $GITHUB_OUTPUT
+          fi
+      
+      - name: Download artifacts
+        if: steps.check_dir.outputs.directory_exists == 'true'
+        uses: actions/download-artifact@v3
+        with:
+          name: ${{ matrix.service }}-binary
+          path: services/${{ matrix.service }}/target/release/
+      
+      - name: Set file permissions
+        if: steps.check_dir.outputs.directory_exists == 'true'
+        run: chmod +x services/${{ matrix.service }}/target/release/${{ matrix.service }}
+      
+      - name: Log in to the Container registry
+        if: steps.check_dir.outputs.directory_exists == 'true'
+        uses: docker/login-action@v2
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: Extract metadata (tags, labels) for Docker
+        if: steps.check_dir.outputs.directory_exists == 'true'
+        id: meta
+        uses: docker/metadata-action@v4
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/${{ matrix.service }}
+          tags: |
+            type=ref,event=branch
+            type=ref,event=pr
+            type=semver,pattern={{version}}
+            type=sha,format=long
+      
+      - name: Build and push Docker image
+        if: steps.check_dir.outputs.directory_exists == 'true'
+        uses: docker/build-push-action@v4
+        with:
+          context: .
+          file: docker/services/${{ matrix.service }}/Dockerfile
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}

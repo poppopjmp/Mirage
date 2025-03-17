@@ -1,0 +1,250 @@
+# Default values for Mirage Helm chart
+nameOverride: ""
+fullnameOverride: ""
+
+# Global settings
+global:
+  imageRegistry: ghcr.io/van1sh/Mirage
+  imageTag: latest
+  pullPolicy: IfNotPresent
+  storageClass: standard
+  persistence:
+    enabled: true
+
+# API Gateway configuration
+apiGateway:
+  enabled: true
+  replicas: 3
+  serviceType: ClusterIP
+  resources:
+    limits:
+      cpu: 1
+      memory: 512Mi
+    requests:
+      cpu: 0.5
+      memory: 256Mi
+
+# Web UI configuration
+webUi:
+  enabled: true
+  replicas: 2
+  serviceType: ClusterIP
+  resources:
+    limits:
+      cpu: 0.5
+      memory: 256Mi
+    requests:
+      cpu: 0.1
+      memory: 128Mi
+
+# Individual microservices configuration
+services:
+  auth:
+    enabled: true
+    replicas: 2
+    resources:
+      limits:
+        cpu: 0.5
+        memory: 512Mi
+      requests:
+        cpu: 0.2
+        memory: 256Mi
+  
+  userManagement:
+    enabled: true
+    replicas: 2
+    resources:
+      limits:
+        cpu: 0.5
+        memory: 512Mi
+      requests:
+        cpu: 0.2
+        memory: 256Mi
+  
+  scanOrchestration:
+    enabled: true
+    replicas: 2
+    resources:
+      limits:
+        cpu: 0.5
+        memory: 512Mi
+      requests:
+        cpu: 0.2
+        memory: 256Mi
+  
+  moduleRegistry:
+    enabled: true
+    replicas: 1
+    resources:
+      limits:
+        cpu: 0.5
+        memory: 512Mi
+      requests:
+        cpu: 0.2
+        memory: 256Mi
+  
+  dataCollection:
+    enabled: true
+    replicas: 3
+    resources:
+      limits:
+        cpu: 1
+        memory: 1Gi
+      requests:
+        cpu: 0.5
+        memory: 512Mi
+  
+  dataStorage:
+    enabled: true
+    replicas: 2
+    resources:
+      limits:
+        cpu: 1
+        memory: 1Gi
+      requests:
+        cpu: 0.5
+        memory: 512Mi
+  
+  correlationEngine:
+    enabled: true
+    replicas: 2
+    resources:
+      limits:
+        cpu: 1
+        memory: 1Gi
+      requests:
+        cpu: 0.5
+        memory: 512Mi
+  
+  visualization:
+    enabled: true
+    replicas: 2
+    resources:
+      limits:
+        cpu: 0.5
+        memory: 512Mi
+      requests:
+        cpu: 0.2
+        memory: 256Mi
+  
+  reporting:
+    enabled: true
+    replicas: 1
+    resources:
+      limits:
+        cpu: 0.5
+        memory: 512Mi
+      requests:
+        cpu: 0.2
+        memory: 256Mi
+  
+  notification:
+    enabled: true
+    replicas: 1
+    resources:
+      limits:
+        cpu: 0.5
+        memory: 256Mi
+      requests:
+        cpu: 0.1
+        memory: 128Mi
+  
+  integration:
+    enabled: true
+    replicas: 1
+    resources:
+      limits:
+        cpu: 0.5
+        memory: 512Mi
+      requests:
+        cpu: 0.2
+        memory: 256Mi
+  
+  configuration:
+    enabled: true
+    replicas: 1
+    resources:
+      limits:
+        cpu: 0.5
+        memory: 256Mi
+      requests:
+        cpu: 0.1
+        memory: 128Mi
+  
+  discovery:
+    enabled: true
+    replicas: 1
+    resources:
+      limits:
+        cpu: 0.5
+        memory: 256Mi
+      requests:
+        cpu: 0.1
+        memory: 128Mi
+
+# Infrastructure services configuration
+infrastructure:
+  postgres:
+    enabled: true
+    version: "14"
+    persistence:
+      size: 20Gi
+    resources:
+      limits:
+        cpu: 2
+        memory: 2Gi
+      requests:
+        cpu: 0.5
+        memory: 1Gi
+  
+  mongodb:
+    enabled: true
+    version: "5"
+    persistence:
+      size: 20Gi
+    resources:
+      limits:
+        cpu: 2
+        memory: 2Gi
+      requests:
+        cpu: 0.5
+        memory: 1Gi
+  
+  neo4j:
+    enabled: true
+    version: "4.4"
+    persistence:
+      size: 20Gi
+    resources:
+      limits:
+        cpu: 2
+        memory: 4Gi
+      requests:
+        cpu: 1
+        memory: 2Gi
+  
+  elasticsearch:
+    enabled: true
+    version: "7.17.0"
+    persistence:
+      size: 30Gi
+    resources:
+      limits:
+        cpu: 2
+        memory: 4Gi
+      requests:
+        cpu: 1
+        memory: 2Gi
+  
+  redis:
+    enabled: true
+    version: "6"
+    persistence:
+      size: 8Gi
+    resources:
+      limits:
+        cpu: 0.5
+        memory: 1Gi
+      requests:
+        cpu: 0.2
+        memory: 512Mi
