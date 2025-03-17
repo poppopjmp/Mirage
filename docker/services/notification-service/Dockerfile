@@ -6,9 +6,9 @@ WORKDIR /app
 # Copy the entire project for building
 COPY . .
 
-# Build the visualization service
-WORKDIR /visualization
-COPY --from=0 /app/services/visualization /visualization
+# Build the notification service
+WORKDIR /notification
+COPY --from=0 /app/services/notification /notification
 RUN cargo build --release
 
 FROM debian:bullseye-slim
@@ -19,15 +19,15 @@ RUN apt-get update && \
     rm -rf /var/lib/apt/lists/*
 
 # Copy the binary and config from builder
-COPY --from=builder /visualization/target/release/mirage-visualization /usr/local/bin/
+COPY --from=builder /notification/target/release/mirage-notification /usr/local/bin/
 COPY --from=builder /app/config /app/config
-COPY --from=builder /visualization/templates /app/templates
+COPY --from=builder /notification/templates /app/templates
 
 WORKDIR /app
 ENV RUN_ENV=production
 
 # Expose the port
-EXPOSE 8089
+EXPOSE 8007
 
 # Run the binary
-CMD ["mirage-visualization"]
+CMD ["mirage-notification"]

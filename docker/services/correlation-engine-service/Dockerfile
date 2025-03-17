@@ -6,9 +6,9 @@ WORKDIR /app
 # Copy the entire project for building
 COPY . .
 
-# Build the visualization service
-WORKDIR /visualization
-COPY --from=0 /app/services/visualization /visualization
+# Build the correlation engine service
+WORKDIR /correlation-engine
+COPY --from=0 /app/services/correlation-engine /correlation-engine
 RUN cargo build --release
 
 FROM debian:bullseye-slim
@@ -19,15 +19,14 @@ RUN apt-get update && \
     rm -rf /var/lib/apt/lists/*
 
 # Copy the binary and config from builder
-COPY --from=builder /visualization/target/release/mirage-visualization /usr/local/bin/
+COPY --from=builder /correlation-engine/target/release/mirage-correlation-engine /usr/local/bin/
 COPY --from=builder /app/config /app/config
-COPY --from=builder /visualization/templates /app/templates
 
 WORKDIR /app
 ENV RUN_ENV=production
 
 # Expose the port
-EXPOSE 8089
+EXPOSE 8006
 
 # Run the binary
-CMD ["mirage-visualization"]
+CMD ["mirage-correlation-engine"]

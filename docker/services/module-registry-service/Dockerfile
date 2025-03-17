@@ -6,9 +6,9 @@ WORKDIR /app
 # Copy the entire project for building
 COPY . .
 
-# Build the visualization service
-WORKDIR /visualization
-COPY --from=0 /app/services/visualization /visualization
+# Build the module registry service
+WORKDIR /module-registry
+COPY --from=0 /app/services/module-registry /module-registry
 RUN cargo build --release
 
 FROM debian:bullseye-slim
@@ -19,15 +19,18 @@ RUN apt-get update && \
     rm -rf /var/lib/apt/lists/*
 
 # Copy the binary and config from builder
-COPY --from=builder /visualization/target/release/mirage-visualization /usr/local/bin/
+COPY --from=builder /module-registry/target/release/mirage-module-registry /usr/local/bin/
 COPY --from=builder /app/config /app/config
-COPY --from=builder /visualization/templates /app/templates
+COPY --from=builder /module-registry/migrations /app/migrations
 
 WORKDIR /app
 ENV RUN_ENV=production
 
+# Create storage directory for modules
+RUN mkdir -p /app/storage/modules
+
 # Expose the port
-EXPOSE 8089
+EXPOSE 8002
 
 # Run the binary
-CMD ["mirage-visualization"]
+CMD ["mirage-module-registry"]

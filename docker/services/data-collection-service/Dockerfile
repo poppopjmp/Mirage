@@ -6,9 +6,9 @@ WORKDIR /app
 # Copy the entire project for building
 COPY . .
 
-# Build the visualization service
-WORKDIR /visualization
-COPY --from=0 /app/services/visualization /visualization
+# Build the data collection service
+WORKDIR /data-collection
+COPY --from=0 /app/services/data-collection /data-collection
 RUN cargo build --release
 
 FROM debian:bullseye-slim
@@ -19,15 +19,14 @@ RUN apt-get update && \
     rm -rf /var/lib/apt/lists/*
 
 # Copy the binary and config from builder
-COPY --from=builder /visualization/target/release/mirage-visualization /usr/local/bin/
+COPY --from=builder /data-collection/target/release/mirage-data-collection /usr/local/bin/
 COPY --from=builder /app/config /app/config
-COPY --from=builder /visualization/templates /app/templates
 
 WORKDIR /app
 ENV RUN_ENV=production
 
 # Expose the port
-EXPOSE 8089
+EXPOSE 8004
 
 # Run the binary
-CMD ["mirage-visualization"]
+CMD ["mirage-data-collection"]
