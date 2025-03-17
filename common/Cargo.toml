@@ -1,0 +1,12 @@
+[package]
+name = "mirage-common"
+version = "0.1.0"
+edition = "2021"
+description = "Common utilities for the Mirage OSINT platform"
+
+[dependencies]
+thiserror = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+uuid = { workspace = true }
+chrono = { workspace = true }

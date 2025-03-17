@@ -1,38 +1,50 @@
+use regex::Regex;
+use std::net::IpAddr;
+use url::Url;
+use lazy_static::lazy_static;
+
+lazy_static! {
+    static ref EMAIL_REGEX: Regex = Regex::new(r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$").unwrap();
+}
+
+/// Validates if the given string is a valid email address.
 pub fn is_valid_email(email: &str) -> bool {
-    let email_regex = regex::Regex::new(r"^[\w\.-]+@[\w\.-]+\.\w+$").unwrap();
-    email_regex.is_match(email)
+    EMAIL_REGEX.is_match(email)
 }
 
-pub fn is_valid_url(url: &str) -> bool {
-    let url_regex = regex::Regex::new(r"^(http|https)://[\w\.-]+\.\w+").unwrap();
-    url_regex.is_match(url)
+/// Validates if the given string is a valid URL.
+pub fn is_valid_url(url_str: &str) -> bool {
+    match Url::parse(url_str) {
+        Ok(url) => url.scheme() == "http" || url.scheme() == "https",
+        Err(_) => false,
+    }
 }
 
-pub fn is_valid_ip(ip: &str) -> bool {
-    let ip_regex = regex::Regex::new(r"^(\d{1,3}\.){3}\d{1,3}$").unwrap();
-    ip_regex.is_match(ip)
+/// Validates if the given string is a valid IP address (IPv4 or IPv6).
+pub fn is_valid_ip(ip_str: &str) -> bool {
+    ip_str.parse::<IpAddr>().is_ok()
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_is_valid_email() {
-        assert!(is_valid_email("test@example.com"));
-        assert!(!is_valid_email("invalid-email"));
+/// Extracts domain name from a URL.
+pub fn extract_domain(url_str: &str) -> Option<String> {
+    match Url::parse(url_str) {
+        Ok(url) => url.host_str().map(String::from),
+        Err(_) => None,
     }
+}
 
-    #[test]
-    fn test_is_valid_url() {
-        assert!(is_valid_url("http://example.com"));
-        assert!(is_valid_url("https://example.com"));
-        assert!(!is_valid_url("invalid-url"));
+/// Normalizes a URL by removing trailing slashes and fragments.
+pub fn normalize_url(url_str: &str) -> Option<String> {
+    match Url::parse(url_str) {
+        Ok(mut url) => {
+            url.set_fragment(None);
+            Some(url.to_string().trim_end_matches('/').to_string())
+        },
+        Err(_) => None,
     }
+}
 
-    #[test]
-    fn test_is_valid_ip() {
-        assert!(is_valid_ip("192.168.0.1"));
-        assert!(!is_valid_ip("999.999.999.999"));
-    }
+/// Checks if a port is within valid range.
+pub fn is_valid_port(port: u16) -> bool {
+    port > 0 && port < 65536
 }

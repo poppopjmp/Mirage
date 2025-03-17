@@ -1,0 +1,15 @@
+server:
+  port: 8006
+  host: "0.0.0.0"
+
+database:
+  url: "postgres://postgres:password@postgres:5432/mirage_config"
+  max_connections: 20
+
+redis:
+  uri: "redis://redis:6379/0"
+  cache_ttl_seconds: 3600
+  prefix: "mirage"
+
+service_name: "configuration-service"
+audit_enabled: true

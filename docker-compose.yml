@@ -1,0 +1,246 @@
+version: '3.8'
+
+services:
+  # API Gateway
+  api-gateway:
+    image: nginx:alpine
+    ports:
+      - "80:80"
+      - "8081:8081"  # Monitoring port
+    volumes:
+      - ./config/nginx/default.conf:/etc/nginx/conf.d/default.conf
+      - ./config/nginx/nginx.conf:/etc/nginx/nginx.conf
+      - ./logs/nginx:/var/log/nginx
+      - nginx-cache:/var/cache/nginx
+    depends_on:
+      - auth-service
+      - user-management
+      - module-registry
+      - scan-orchestration
+      - scanner-coordinator
+      - data-collection
+      - data-storage
+      - correlation-engine
+      - visualization
+      - reporting
+      - notification
+      - configuration-service
+    restart: unless-stopped
+    networks:
+      - mirage-network
+
+  # Microservices
+  auth-service:
+    build: 
+      context: .
+      dockerfile: services/auth/Dockerfile
+    environment:
+      - RUST_LOG=info
+      - DATABASE_URL=postgres://postgres:password@postgres:5432/mirage_auth
+    depends_on:
+      - postgres
+      - redis
+    networks:
+      - mirage-network
+
+  user-management:
+    build:
+      context: . 
+      dockerfile: services/user-management/Dockerfile
+    environment:
+      - RUST_LOG=info
+      - DATABASE_URL=postgres://postgres:password@postgres:5432/mirage_users
+    depends_on:
+      - postgres
+      - redis
+    networks:
+      - mirage-network
+
+  module-registry:
+    build:
+      context: . 
+      dockerfile: services/module-registry/Dockerfile
+    environment:
+      - RUST_LOG=info
+      - DATABASE_URL=postgres://postgres:password@postgres:5432/mirage_modules
+    volumes:
+      - module-data:/app/modules
+    depends_on:
+      - postgres
+    networks:
+      - mirage-network
+
+  scan-orchestration:
+    build:
+      context: . 
+      dockerfile: services/scan-orchestration/Dockerfile
+    environment:
+      - RUST_LOG=info
+      - DATABASE_URL=postgres://postgres:password@postgres:5432/mirage_scans
+    depends_on:
+      - postgres
+      - redis
+    networks:
+      - mirage-network
+
+  scanner-coordinator:
+    build:
+      context: . 
+      dockerfile: services/scanner-coordinator/Dockerfile
+    environment:
+      - RUST_LOG=info
+      - DATABASE_URL=postgres://postgres:password@postgres:5432/mirage_scanner
+    depends_on:
+      - postgres
+      - redis
+    networks:
+      - mirage-network
+
+  data-collection:
+    build:
+      context: . 
+      dockerfile: services/data-collection/Dockerfile
+    environment:
+      - RUST_LOG=info
+      - DATABASE_URL=postgres://postgres:password@postgres:5432/mirage_collection
+    depends_on:
+      - postgres
+      - redis
+    networks:
+      - mirage-network
+
+  data-storage:
+    build:
+      context: . 
+      dockerfile: services/data-storage/Dockerfile
+    environment:
+      - RUST_LOG=info
+      - DATABASE_URL=postgres://postgres:password@postgres:5432/mirage_storage
+    volumes:
+      - storage-data:/app/data
+    depends_on:
+      - postgres
+    networks:
+      - mirage-network
+
+  correlation-engine:
+    build:
+      context: . 
+      dockerfile: services/correlation-engine/Dockerfile
+    environment:
+      - RUST_LOG=info
+      - DATABASE_URL=postgres://postgres:password@postgres:5432/mirage_correlation
+    depends_on:
+      - postgres
+      - redis
+    networks:
+      - mirage-network
+
+  visualization:
+    build:
+      context: . 
+      dockerfile: services/visualization/Dockerfile
+    environment:
+      - RUST_LOG=info
+    depends_on:
+      - data-storage
+    networks:
+      - mirage-network
+
+  reporting:
+    build:
+      context: . 
+      dockerfile: services/reporting/Dockerfile
+    environment:
+      - RUST_LOG=info
+    depends_on:
+      - data-storage
+    networks:
+      - mirage-network
+
+  notification:
+    build:
+      context: . 
+      dockerfile: services/notification/Dockerfile
+    environment:
+      - RUST_LOG=info
+      - DATABASE_URL=postgres://postgres:password@postgres:5432/mirage_notifications
+    depends_on:
+      - postgres
+      - redis
+    networks:
+      - mirage-network
+    
+  configuration-service:
+    build:
+      context: . 
+      dockerfile: services/configuration-service/Dockerfile
+    environment:
+      - RUST_LOG=info
+      - DATABASE_URL=postgres://postgres:password@postgres:5432/mirage_config
+    depends_on:
+      - postgres
+      - redis
+    networks:
+      - mirage-network
+
+  discovery-service:
+    build: 
+      context: .
+      dockerfile: services/discovery-service/Dockerfile
+    environment:
+      - RUST_LOG=info
+      - REDIS_URL=redis://redis:6379/0
+      - SERVER_PORT=8007
+    ports:
+      - "8007:8007"
+    depends_on:
+      - redis
+    networks:
+      - mirage-network
+
+  integration-service:
+    build:
+      context: .
+      dockerfile: services/integration-service/Dockerfile
+    environment:
+      - RUST_LOG=info
+      - MIRAGE_INTEGRATION_DATABASE__URL=postgres://postgres:password@postgres:5432/mirage_integrations
+      - MIRAGE_INTEGRATION_REDIS__URI=redis://redis:6379/0
+    ports:
+      - "8008:8008"
+    depends_on:
+      - postgres
+      - redis
+    networks:
+      - mirage-network
+
+  # Databases and caching
+  postgres:
+    image: postgres:14-alpine
+    environment:
+      - POSTGRES_PASSWORD=password
+      - POSTGRES_USER=postgres
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./scripts/init-postgres.sh:/docker-entrypoint-initdb.d/init-postgres.sh
+    networks:
+      - mirage-network
+
+  redis:
+    image: redis:alpine
+    volumes:
+      - redis-data:/data
+    networks:
+      - mirage-network
+
+networks:
+  mirage-network:
+    driver: bridge
+
+volumes:
+  postgres-data:
+  redis-data:
+  module-data:
+  storage-data:
+  nginx-cache:

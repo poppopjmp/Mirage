@@ -1,0 +1,34 @@
+server:
+  port: 8005
+  host: "0.0.0.0"
+
+database:
+  url: "postgres://postgres:password@postgres:5432/mirage_scanner"
+  max_connections: 20
+
+redis:
+  uri: "redis://redis:6379/0"
+  task_queue_prefix: "mirage:scanner"
+
+scheduler:
+  interval_seconds: 10
+  max_concurrent_scans: 5
+  max_targets_per_batch: 50
+  retry_delay_seconds: 30
+  max_retries: 3
+
+module_registry:
+  url: "http://module-registry:8000/api/v1"
+  timeout_seconds: 30
+
+scan_orchestration:
+  url: "http://scan-orchestration:8000/api/v1"
+  timeout_seconds: 30
+
+data_collection:
+  url: "http://data-collection:8000/api/v1"
+  timeout_seconds: 60
+
+data_storage:
+  url: "http://data-storage:8000/api/v1"
+  timeout_seconds: 30

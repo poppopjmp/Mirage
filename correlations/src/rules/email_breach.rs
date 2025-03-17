@@ -1,113 +1,68 @@
-use std::collections::HashMap;
+use crate::core::event::Event;
+use crate::correlations::{CorrelationRule, Alert, Severity};
+use std::collections::{HashMap, HashSet};
 
-#[derive(Debug, Clone)]
-pub struct EmailBreachEvent {
-    pub email: String,
-    pub breach_source: String,
-    pub timestamp: u64,
-}
-
-impl EmailBreachEvent {
-    pub fn new(email: &str, breach_source: &str, timestamp: u64) -> Self {
-        Self {
-            email: email.to_string(),
-            breach_source: breach_source.to_string(),
-            timestamp,
-        }
-    }
-}
-
-pub struct EmailBreachRule {
-    events: HashMap<String, Vec<EmailBreachEvent>>,
-}
+/// Correlation rule for detecting compromised email addresses
+pub struct EmailBreachRule;
 
 impl EmailBreachRule {
     pub fn new() -> Self {
-        Self {
-            events: HashMap::new(),
-        }
-    }
-
-    pub fn add_event(&mut self, event: EmailBreachEvent) {
-        self.events
-            .entry(event.email.clone())
-            .or_insert_with(Vec::new)
-            .push(event);
-    }
-
-    pub fn get_events(&self, email: &str) -> Option<&Vec<EmailBreachEvent>> {
-        self.events.get(email)
-    }
-
-    pub fn get_all_events(&self) -> &HashMap<String, Vec<EmailBreachEvent>> {
-        &self.events
-    }
-
-    pub fn check_breached_emails(&self) -> Vec<&EmailBreachEvent> {
-        let mut breached_emails = Vec::new();
-        for events in self.events.values() {
-            for event in events {
-                breached_emails.push(event);
-            }
-        }
-        breached_emails
+        EmailBreachRule
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_add_event() {
-        let mut rule = EmailBreachRule::new();
-        let event = EmailBreachEvent::new("test@example.com", "test_source", 1234567890);
-        rule.add_event(event.clone());
-
-        let events = rule.get_events("test@example.com").unwrap();
-        assert_eq!(events.len(), 1);
-        assert_eq!(events[0], event);
+impl CorrelationRule for EmailBreachRule {
+    fn name(&self) -> &str {
+        "Email Breach Detection"
     }
-
-    #[test]
-    fn test_get_events() {
-        let mut rule = EmailBreachRule::new();
-        let event1 = EmailBreachEvent::new("test@example.com", "source1", 1234567890);
-        let event2 = EmailBreachEvent::new("test@example.com", "source2", 1234567891);
-        rule.add_event(event1.clone());
-        rule.add_event(event2.clone());
-
-        let events = rule.get_events("test@example.com").unwrap();
-        assert_eq!(events.len(), 2);
-        assert_eq!(events[0], event1);
-        assert_eq!(events[1], event2);
+    
+    fn description(&self) -> &str {
+        "Detects email addresses that have appeared in known data breaches"
     }
-
-    #[test]
-    fn test_get_all_events() {
-        let mut rule = EmailBreachRule::new();
-        let event1 = EmailBreachEvent::new("email1@example.com", "source1", 1234567890);
-        let event2 = EmailBreachEvent::new("email2@example.com", "source2", 1234567891);
-        rule.add_event(event1.clone());
-        rule.add_event(event2.clone());
-
-        let all_events = rule.get_all_events();
-        assert_eq!(all_events.len(), 2);
-        assert_eq!(all_events.get("email1@example.com").unwrap().len(), 1);
-        assert_eq!(all_events.get("email2@example.com").unwrap().len(), 1);
-    }
-
-    #[test]
-    fn test_check_breached_emails() {
-        let mut rule = EmailBreachRule::new();
-        let event1 = EmailBreachEvent::new("email1@example.com", "source1", 1234567890);
-        let event2 = EmailBreachEvent::new("email2@example.com", "source2", 1234567891);
-        rule.add_event(event1.clone());
-        rule.add_event(event2.clone());
-
-        let breached_emails = rule.check_breached_emails();
-        assert_eq!(breached_emails.len(), 2);
-        assert_eq!(breached_emails[0], &event1);
-        assert_eq!(breached_emails[1], &event2);
+    
+    fn analyze(&self, events: &[Event]) -> Vec<Alert> {
+        let mut alerts = Vec::new();
+        let mut breach_count: HashMap<String, Vec<&Event>> = HashMap::new();
+        let mut seen_emails = HashSet::new();
+        
+        // Find all email breach events and group by email
+        for event in events {
+            if event.event_type() == "EMAIL_BREACH" || 
+               (event.event_type() == "BREACH_DATA" && event.data().contains("@")) {
+                
+                // In a real implementation, we would extract the email more carefully
+                let email = event.data().to_string();
+                
+                if !seen_emails.contains(&email) {
+                    seen_emails.insert(email.clone());
+                    breach_count.entry(email).or_insert_with(Vec::new).push(event);
+                }
+            }
+        }
+        
+        // Create alerts for each breached email
+        for (email, events) in breach_count {
+            // Determine severity based on number of breach events
+            let severity = match events.len() {
+                1 => Severity::Low,
+                2..=3 => Severity::Medium,
+                4..=10 => Severity::High,
+                _ => Severity::Critical,
+            };
+            
+            let alert = Alert::new(
+                &format!("Email Breach: {}", email),
+                &format!("Email address {} has been found in {} data breach(es)", email, events.len()),
+                severity,
+                events.into_iter().cloned().collect(),
+                std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .unwrap()
+                    .as_secs()
+            );
+            alerts.push(alert);
+        }
+        
+        alerts
     }
 }

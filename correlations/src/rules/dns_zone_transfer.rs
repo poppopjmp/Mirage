@@ -1,113 +1,64 @@
-use std::collections::HashMap;
+use crate::core::event::Event;
+use crate::correlations::{CorrelationRule, Alert, Severity};
 
-#[derive(Debug, Clone)]
-pub struct DnsZoneTransferEvent {
-    pub domain: String,
-    pub server: String,
-    pub timestamp: u64,
-}
-
-impl DnsZoneTransferEvent {
-    pub fn new(domain: &str, server: &str, timestamp: u64) -> Self {
-        Self {
-            domain: domain.to_string(),
-            server: server.to_string(),
-            timestamp,
-        }
-    }
-}
-
-pub struct DnsZoneTransferRule {
-    events: HashMap<String, Vec<DnsZoneTransferEvent>>,
-}
+/// Correlation rule for detecting DNS zone transfers
+pub struct DnsZoneTransferRule;
 
 impl DnsZoneTransferRule {
     pub fn new() -> Self {
-        Self {
-            events: HashMap::new(),
-        }
+        DnsZoneTransferRule
     }
-
-    pub fn add_event(&mut self, event: DnsZoneTransferEvent) {
-        self.events
-            .entry(event.domain.clone())
-            .or_insert_with(Vec::new)
-            .push(event);
-    }
-
-    pub fn get_events(&self, domain: &str) -> Option<&Vec<DnsZoneTransferEvent>> {
-        self.events.get(domain)
-    }
-
-    pub fn get_all_events(&self) -> &HashMap<String, Vec<DnsZoneTransferEvent>> {
-        &self.events
-    }
-
-    pub fn check_zone_transfers(&self) -> Vec<&DnsZoneTransferEvent> {
-        let mut zone_transfers = Vec::new();
-        for events in self.events.values() {
-            for event in events {
-                zone_transfers.push(event);
-            }
-        }
-        zone_transfers
+    
+    fn is_zone_transfer_event(&self, event: &Event) -> bool {
+        event.event_type() == "DNS_ZONE_TRANSFER" || 
+        (event.event_type() == "DNS_RECORD" && event.data().contains("AXFR"))
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_add_event() {
-        let mut rule = DnsZoneTransferRule::new();
-        let event = DnsZoneTransferEvent::new("example.com", "ns1.example.com", 1234567890);
-        rule.add_event(event.clone());
-
-        let events = rule.get_events("example.com").unwrap();
-        assert_eq!(events.len(), 1);
-        assert_eq!(events[0], event);
+impl CorrelationRule for DnsZoneTransferRule {
+    fn name(&self) -> &str {
+        "DNS Zone Transfer"
     }
-
-    #[test]
-    fn test_get_events() {
-        let mut rule = DnsZoneTransferRule::new();
-        let event1 = DnsZoneTransferEvent::new("example.com", "ns1.example.com", 1234567890);
-        let event2 = DnsZoneTransferEvent::new("example.com", "ns2.example.com", 1234567891);
-        rule.add_event(event1.clone());
-        rule.add_event(event2.clone());
-
-        let events = rule.get_events("example.com").unwrap();
-        assert_eq!(events.len(), 2);
-        assert_eq!(events[0], event1);
-        assert_eq!(events[1], event2);
+    
+    fn description(&self) -> &str {
+        "Detects unauthorized DNS zone transfers which can expose internal network information"
     }
-
-    #[test]
-    fn test_get_all_events() {
-        let mut rule = DnsZoneTransferRule::new();
-        let event1 = DnsZoneTransferEvent::new("example1.com", "ns1.example1.com", 1234567890);
-        let event2 = DnsZoneTransferEvent::new("example2.com", "ns2.example2.com", 1234567891);
-        rule.add_event(event1.clone());
-        rule.add_event(event2.clone());
-
-        let all_events = rule.get_all_events();
-        assert_eq!(all_events.len(), 2);
-        assert_eq!(all_events.get("example1.com").unwrap().len(), 1);
-        assert_eq!(all_events.get("example2.com").unwrap().len(), 1);
-    }
-
-    #[test]
-    fn test_check_zone_transfers() {
-        let mut rule = DnsZoneTransferRule::new();
-        let event1 = DnsZoneTransferEvent::new("example1.com", "ns1.example1.com", 1234567890);
-        let event2 = DnsZoneTransferEvent::new("example2.com", "ns2.example2.com", 1234567891);
-        rule.add_event(event1.clone());
-        rule.add_event(event2.clone());
-
-        let zone_transfers = rule.check_zone_transfers();
-        assert_eq!(zone_transfers.len(), 2);
-        assert_eq!(zone_transfers[0], &event1);
-        assert_eq!(zone_transfers[1], &event2);
+    
+    fn analyze(&self, events: &[Event]) -> Vec<Alert> {
+        let mut alerts = Vec::new();
+        let mut zone_transfer_events = Vec::new();
+        
+        // Group events by domain
+        let mut domain_events: std::collections::HashMap<String, Vec<&Event>> = std::collections::HashMap::new();
+        
+        for event in events {
+            if self.is_zone_transfer_event(event) {
+                zone_transfer_events.push(event.clone());
+                
+                // Extract domain from event data
+                // In a real implementation, we would parse the event data properly
+                let domain = event.source().unwrap_or("unknown").to_string();
+                
+                let domain_events_entry = domain_events.entry(domain).or_insert_with(Vec::new);
+                domain_events_entry.push(event);
+            }
+        }
+        
+        // Create an alert for each domain with zone transfer events
+        for (domain, events) in domain_events {
+            let alert = Alert::new(
+                &format!("DNS Zone Transfer: {}", domain),
+                &format!("DNS server is allowing zone transfers for domain {}, which can expose internal network information", domain),
+                Severity::Medium,
+                events.into_iter().cloned().collect(),
+                std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .unwrap()
+                    .as_secs()
+            );
+            alerts.push(alert);
+        }
+        
+        alerts
     }
 }

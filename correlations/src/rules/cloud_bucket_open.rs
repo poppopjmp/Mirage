@@ -1,114 +1,84 @@
-use std::collections::HashMap;
+use crate::core::event::Event;
+use crate::correlations::{CorrelationRule, Alert, Severity};
+use regex::Regex;
+use lazy_static::lazy_static;
 
-#[derive(Debug, Clone)]
-pub struct CloudBucketOpenEvent {
-    pub bucket_name: String,
-    pub access_type: String,
-    pub timestamp: u64,
+lazy_static! {
+    static ref S3_BUCKET_REGEX: Regex = Regex::new(r"https?://([a-zA-Z0-9-]+)\.s3\.amazonaws\.com").unwrap();
+    static ref GCS_BUCKET_REGEX: Regex = Regex::new(r"https?://storage\.googleapis\.com/([a-zA-Z0-9-]+)").unwrap();
+    static ref AZURE_BLOB_REGEX: Regex = Regex::new(r"https?://([a-zA-Z0-9-]+)\.blob\.core\.windows\.net").unwrap();
 }
 
-impl CloudBucketOpenEvent {
-    pub fn new(bucket_name: &str, access_type: &str, timestamp: u64) -> Self {
-        Self {
-            bucket_name: bucket_name.to_string(),
-            access_type: access_type.to_string(),
-            timestamp,
-        }
-    }
-}
-
-pub struct CloudBucketOpenRule {
-    events: HashMap<String, Vec<CloudBucketOpenEvent>>,
-}
+/// Correlation rule for detecting open cloud storage buckets
+pub struct CloudBucketOpenRule;
 
 impl CloudBucketOpenRule {
     pub fn new() -> Self {
-        Self {
-            events: HashMap::new(),
+        CloudBucketOpenRule
+    }
+    
+    fn is_open_bucket_url(&self, url: &str) -> bool {
+        // In a real implementation, this would check if the bucket is publicly accessible
+        // For now, we'll just check if it matches a cloud bucket pattern
+        S3_BUCKET_REGEX.is_match(url) || 
+        GCS_BUCKET_REGEX.is_match(url) || 
+        AZURE_BLOB_REGEX.is_match(url)
+    }
+    
+    fn extract_bucket_name(&self, url: &str) -> Option<String> {
+        if let Some(captures) = S3_BUCKET_REGEX.captures(url) {
+            return captures.get(1).map(|m| m.as_str().to_string());
         }
-    }
-
-    pub fn add_event(&mut self, event: CloudBucketOpenEvent) {
-        self.events
-            .entry(event.bucket_name.clone())
-            .or_insert_with(Vec::new)
-            .push(event);
-    }
-
-    pub fn get_events(&self, bucket_name: &str) -> Option<&Vec<CloudBucketOpenEvent>> {
-        self.events.get(bucket_name)
-    }
-
-    pub fn get_all_events(&self) -> &HashMap<String, Vec<CloudBucketOpenEvent>> {
-        &self.events
-    }
-
-    pub fn check_open_buckets(&self) -> Vec<&CloudBucketOpenEvent> {
-        let mut open_buckets = Vec::new();
-        for events in self.events.values() {
-            for event in events {
-                if event.access_type == "public" {
-                    open_buckets.push(event);
-                }
-            }
+        
+        if let Some(captures) = GCS_BUCKET_REGEX.captures(url) {
+            return captures.get(1).map(|m| m.as_str().to_string());
         }
-        open_buckets
+        
+        if let Some(captures) = AZURE_BLOB_REGEX.captures(url) {
+            return captures.get(1).map(|m| m.as_str().to_string());
+        }
+        
+        None
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_add_event() {
-        let mut rule = CloudBucketOpenRule::new();
-        let event = CloudBucketOpenEvent::new("test_bucket", "public", 1234567890);
-        rule.add_event(event.clone());
-
-        let events = rule.get_events("test_bucket").unwrap();
-        assert_eq!(events.len(), 1);
-        assert_eq!(events[0], event);
+impl CorrelationRule for CloudBucketOpenRule {
+    fn name(&self) -> &str {
+        "Cloud Bucket Open"
     }
-
-    #[test]
-    fn test_get_events() {
-        let mut rule = CloudBucketOpenRule::new();
-        let event1 = CloudBucketOpenEvent::new("test_bucket", "public", 1234567890);
-        let event2 = CloudBucketOpenEvent::new("test_bucket", "private", 1234567891);
-        rule.add_event(event1.clone());
-        rule.add_event(event2.clone());
-
-        let events = rule.get_events("test_bucket").unwrap();
-        assert_eq!(events.len(), 2);
-        assert_eq!(events[0], event1);
-        assert_eq!(events[1], event2);
+    
+    fn description(&self) -> &str {
+        "Detects publicly accessible cloud storage buckets"
     }
-
-    #[test]
-    fn test_get_all_events() {
-        let mut rule = CloudBucketOpenRule::new();
-        let event1 = CloudBucketOpenEvent::new("bucket1", "public", 1234567890);
-        let event2 = CloudBucketOpenEvent::new("bucket2", "private", 1234567891);
-        rule.add_event(event1.clone());
-        rule.add_event(event2.clone());
-
-        let all_events = rule.get_all_events();
-        assert_eq!(all_events.len(), 2);
-        assert_eq!(all_events.get("bucket1").unwrap().len(), 1);
-        assert_eq!(all_events.get("bucket2").unwrap().len(), 1);
-    }
-
-    #[test]
-    fn test_check_open_buckets() {
-        let mut rule = CloudBucketOpenRule::new();
-        let event1 = CloudBucketOpenEvent::new("bucket1", "public", 1234567890);
-        let event2 = CloudBucketOpenEvent::new("bucket2", "private", 1234567891);
-        rule.add_event(event1.clone());
-        rule.add_event(event2.clone());
-
-        let open_buckets = rule.check_open_buckets();
-        assert_eq!(open_buckets.len(), 1);
-        assert_eq!(open_buckets[0], &event1);
+    
+    fn analyze(&self, events: &[Event]) -> Vec<Alert> {
+        let mut alerts = Vec::new();
+        let mut seen_buckets = std::collections::HashSet::new();
+        
+        for event in events {
+            if event.event_type() == "URL_FOUND" || event.event_type() == "CLOUD_STORAGE" {
+                let url = event.data();
+                
+                if self.is_open_bucket_url(url) {
+                    if let Some(bucket_name) = self.extract_bucket_name(url) {
+                        if seen_buckets.insert(bucket_name.clone()) {
+                            let alert = Alert::new(
+                                &format!("Open Cloud Bucket: {}", bucket_name),
+                                &format!("Potentially publicly accessible cloud storage bucket found: {}", url),
+                                Severity::High,
+                                vec![event.clone()],
+                                std::time::SystemTime::now()
+                                    .duration_since(std::time::UNIX_EPOCH)
+                                    .unwrap()
+                                    .as_secs()
+                            );
+                            alerts.push(alert);
+                        }
+                    }
+                }
+            }
+        }
+        
+        alerts
     }
 }

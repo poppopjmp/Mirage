@@ -1,85 +1,90 @@
-use actix_web::{web, App, HttpServer, HttpResponse, Responder};
-use actix_web::middleware::Logger;
-use serde::{Deserialize, Serialize};
-use std::sync::Mutex;
-use uuid::Uuid;
+use actix_web::{
+    web, App, HttpServer, middleware::Logger,
+    HttpResponse, Responder,
+};
+use tracing::info;
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-struct Configuration {
-    id: Uuid,
-    key: String,
-    value: String,
-    environment: String,
-}
+mod config;
+mod models;
+mod repositories;
+mod services;
+mod handlers;
+mod validation;
+mod audit;
 
-type ConfigDb = Mutex<Vec<Configuration>>;
-
-#[post("/configurations")]
-async fn create_configuration(config: web::Json<Configuration>, db: web::Data<ConfigDb>) -> impl Responder {
-    let mut configs = db.lock().unwrap();
-    let new_config = Configuration {
-        id: Uuid::new_v4(),
-        ..config.into_inner()
-    };
-    configs.push(new_config.clone());
-    HttpResponse::Ok().json(new_config)
-}
-
-#[get("/configurations/{id}")]
-async fn get_configuration(id: web::Path<Uuid>, db: web::Data<ConfigDb>) -> impl Responder {
-    let configs = db.lock().unwrap();
-    if let Some(config) = configs.iter().find(|&config| config.id == *id) {
-        HttpResponse::Ok().json(config)
-    } else {
-        HttpResponse::NotFound().finish()
-    }
-}
-
-#[put("/configurations/{id}")]
-async fn update_configuration(id: web::Path<Uuid>, config: web::Json<Configuration>, db: web::Data<ConfigDb>) -> impl Responder {
-    let mut configs = db.lock().unwrap();
-    if let Some(existing_config) = configs.iter_mut().find(|config| config.id == *id) {
-        *existing_config = config.into_inner();
-        HttpResponse::Ok().json(existing_config.clone())
-    } else {
-        HttpResponse::NotFound().finish()
-    }
-}
-
-#[delete("/configurations/{id}")]
-async fn delete_configuration(id: web::Path<Uuid>, db: web::Data<ConfigDb>) -> impl Responder {
-    let mut configs = db.lock().unwrap();
-    if let Some(pos) = configs.iter().position(|config| config.id == *id) {
-        configs.remove(pos);
-        HttpResponse::NoContent().finish()
-    } else {
-        HttpResponse::NotFound().finish()
-    }
-}
-
-#[get("/configurations")]
-async fn list_configurations(db: web::Data<ConfigDb>) -> impl Responder {
-    let configs = db.lock().unwrap();
-    HttpResponse::Ok().json(configs.clone())
+async fn health_check() -> impl Responder {
+    HttpResponse::Ok().json(serde_json::json!({ "status": "ok" }))
 }
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
-    env_logger::init();
+    // Initialize logging
+    tracing_subscriber::fmt::init();
+    
+    // Load configuration
+    let config = match config::load_config() {
+        Ok(config) => config,
+        Err(e) => {
+            tracing::error!("Failed to load config: {}", e);
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::Other,
+                "Failed to load configuration",
+            ));
+        }
+    };
+    
+    // Initialize database connection
+    let db_pool = match repositories::create_db_pool(&config.database).await {
+        Ok(pool) => pool,
+        Err(e) => {
+            tracing::error!("Failed to connect to database: {}", e);
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::Other,
+                "Failed to connect to database",
+            ));
+        }
+    };
+    
+    // Initialize Redis connection for caching
+    let redis_client = match redis::Client::open(&config.redis.uri) {
+        Ok(client) => client,
+        Err(e) => {
+            tracing::error!("Failed to connect to Redis: {}", e);
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::Other, 
+                "Failed to connect to Redis",
+            ));
+        }
+    };
+    
+    // Initialize repositories
+    let config_repo = repositories::ConfigRepository::new(db_pool.clone());
+    let audit_repo = repositories::AuditRepository::new(db_pool.clone());
+    
+    // Initialize services
+    let audit_service = web::Data::new(audit::AuditService::new(audit_repo));
+    let config_service = web::Data::new(services::ConfigService::new(
+        config_repo,
+        redis_client,
+        audit_service.get_ref().clone(),
+        config.clone(),
+    ));
 
-    let config_db = web::Data::new(Mutex::new(Vec::<Configuration>::new()));
+    info!("Starting Configuration Service on port {}", config.server.port);
 
     HttpServer::new(move || {
         App::new()
+            .app_data(config_service.clone())
+            .app_data(audit_service.clone())
+            .app_data(web::Data::new(config.clone()))
             .wrap(Logger::default())
-            .app_data(config_db.clone())
-            .service(create_configuration)
-            .service(get_configuration)
-            .service(update_configuration)
-            .service(delete_configuration)
-            .service(list_configurations)
+            .service(
+                web::scope("/api/v1")
+                    .route("/health", web::get().to(health_check))
+                    .service(handlers::config_routes())
+            )
     })
-    .bind("127.0.0.1:8080")?
+    .bind(format!("{}:{}", config.server.host, config.server.port))?
     .run()
     .await
 }

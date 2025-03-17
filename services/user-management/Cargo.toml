@@ -1,0 +1,18 @@
+[package]
+name = "mirage-user-management"
+version = "0.1.0"
+edition = "2021"
+description = "User management service for Mirage OSINT platform"
+
+[dependencies]
+mirage-common = { path = "../../common" }
+rocket = { version = "0.5", features = ["json"] }
+tokio = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+config = { workspace = true }
+uuid = { workspace = true }
+chrono = { workspace = true }
+sqlx = { version = "0.7", features = ["postgres", "runtime-tokio-rustls", "chrono", "uuid"] }

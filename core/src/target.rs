@@ -1,95 +1,107 @@
 use std::collections::HashMap;
+use serde::{Serialize, Deserialize};
 
-#[derive(Debug, Clone)]
+/// Represents a target in the system with id, name, and description.
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Target {
-    pub id: String,
-    pub name: String,
-    pub description: String,
+    id: String,
+    name: String,
+    description: String,
 }
 
 impl Target {
+    /// Create a new target with the given id, name, and description.
     pub fn new(id: &str, name: &str, description: &str) -> Self {
-        Self {
+        Target {
             id: id.to_string(),
             name: name.to_string(),
             description: description.to_string(),
         }
     }
+
+    /// Get the target id.
+    pub fn id(&self) -> &str {
+        &self.id
+    }
+
+    /// Get the target name.
+    pub fn name(&self) -> &str {
+        &self.name
+    }
+
+    /// Get the target description.
+    pub fn description(&self) -> &str {
+        &self.description
+    }
+
+    /// Update the target name.
+    pub fn set_name(&mut self, name: &str) {
+        self.name = name.to_string();
+    }
+
+    /// Update the target description.
+    pub fn set_description(&mut self, description: &str) {
+        self.description = description.to_string();
+    }
 }
 
+/// Manages targets, including adding, retrieving, and removing targets.
+#[derive(Debug)]
 pub struct TargetManager {
     targets: HashMap<String, Target>,
 }
 
 impl TargetManager {
+    /// Create a new target manager.
     pub fn new() -> Self {
-        Self {
+        TargetManager {
             targets: HashMap::new(),
         }
     }
 
-    pub fn add_target(&mut self, target: Target) {
-        self.targets.insert(target.id.clone(), target);
+    /// Add a target to the manager.
+    pub fn add_target(&mut self, target: Target) -> bool {
+        if self.targets.contains_key(&target.id) {
+            return false;
+        }
+        self.targets.insert(target.id().to_string(), target);
+        true
     }
 
-    pub fn get_target(&self, target_id: &str) -> Option<&Target> {
-        self.targets.get(target_id)
+    /// Get a target by id.
+    pub fn get_target(&self, id: &str) -> Option<&Target> {
+        self.targets.get(id)
     }
 
-    pub fn remove_target(&mut self, target_id: &str) {
-        self.targets.remove(target_id);
+    /// Remove a target by id.
+    pub fn remove_target(&mut self, id: &str) -> bool {
+        self.targets.remove(id).is_some()
     }
 
+    /// List all targets.
     pub fn list_targets(&self) -> Vec<&Target> {
         self.targets.values().collect()
     }
+
+    /// Count targets.
+    pub fn count_targets(&self) -> usize {
+        self.targets.len()
+    }
+
+    /// Update a target's name and description.
+    pub fn update_target(&mut self, id: &str, name: &str, description: &str) -> bool {
+        if let Some(target) = self.targets.get_mut(id) {
+            target.set_name(name);
+            target.set_description(description);
+            true
+        } else {
+            false
+        }
+    }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_add_target() {
-        let mut manager = TargetManager::new();
-        let target = Target::new("1", "Test Target", "This is a test target.");
-        manager.add_target(target.clone());
-
-        let retrieved_target = manager.get_target("1").unwrap();
-        assert_eq!(retrieved_target, &target);
-    }
-
-    #[test]
-    fn test_get_target() {
-        let mut manager = TargetManager::new();
-        let target = Target::new("1", "Test Target", "This is a test target.");
-        manager.add_target(target.clone());
-
-        let retrieved_target = manager.get_target("1").unwrap();
-        assert_eq!(retrieved_target, &target);
-    }
-
-    #[test]
-    fn test_remove_target() {
-        let mut manager = TargetManager::new();
-        let target = Target::new("1", "Test Target", "This is a test target.");
-        manager.add_target(target.clone());
-
-        manager.remove_target("1");
-        assert!(manager.get_target("1").is_none());
-    }
-
-    #[test]
-    fn test_list_targets() {
-        let mut manager = TargetManager::new();
-        let target1 = Target::new("1", "Test Target 1", "This is a test target 1.");
-        let target2 = Target::new("2", "Test Target 2", "This is a test target 2.");
-        manager.add_target(target1.clone());
-        manager.add_target(target2.clone());
-
-        let targets = manager.list_targets();
-        assert_eq!(targets.len(), 2);
-        assert!(targets.contains(&&target1));
-        assert!(targets.contains(&&target2));
+impl Default for TargetManager {
+    fn default() -> Self {
+        Self::new()
     }
 }

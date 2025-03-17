@@ -1,0 +1,19 @@
+[package]
+name = "mirage-module-registry"
+version = "0.1.0"
+edition = "2021"
+description = "Module registry service for Mirage OSINT platform"
+
+[dependencies]
+mirage-common = { path = "../../common" }
+actix-web = "4.3"
+tokio = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+config = { workspace = true }
+uuid = { workspace = true }
+chrono = { workspace = true }
+sqlx = { version = "0.7", features = ["postgres", "runtime-tokio-rustls", "chrono", "uuid"] }
+semver = "1.0"

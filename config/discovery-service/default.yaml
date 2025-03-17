@@ -1,0 +1,14 @@
+server:
+  port: 8007
+  host: "0.0.0.0"
+
+redis:
+  uri: "redis://redis:6379/0"
+  key_prefix: "mirage:discovery"
+  service_ttl_seconds: 60
+
+health_check:
+  interval_seconds: 30
+  timeout_seconds: 5
+  failure_threshold: 3
+  success_threshold: 2

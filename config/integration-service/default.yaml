@@ -1,0 +1,28 @@
+server:
+  port: 8008
+  host: "0.0.0.0"
+
+database:
+  url: "postgres://postgres:password@postgres:5432/mirage_integrations"
+  max_connections: 20
+
+redis:
+  uri: "redis://redis:6379/0"
+  prefix: "mirage:integration"
+
+security:
+  encryption_key: "YFtqP9UIUl6ExTaAdxcOP9jBd0YF7ISskthV8fl3jdE="
+  jwt_secret: "ZlNbc8iYt1W3zuIaKiZoQFwb0I92FTQd6KBPz2CSZNI="
+
+scheduler:
+  enabled: true
+  execution_interval_seconds: 60
+
+api:
+  timeout_seconds: 30
+  max_retries: 3
+  retry_delay_ms: 1000
+
+services:
+  data_collection_url: "http://data-collection-service:8004/api/v1/data/collect"
+  data_storage_url: "http://data-storage-service:8005/api/v1/data/store"

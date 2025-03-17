@@ -1,97 +1,92 @@
-use actix_web::{web, App, HttpServer, HttpResponse, Responder};
-use actix_web::middleware::Logger;
-use serde::{Deserialize, Serialize};
-use std::sync::Mutex;
-use uuid::Uuid;
+use actix_web::{
+    web, App, HttpServer, middleware::Logger,
+    HttpResponse, Responder,
+};
+use tracing::info;
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-struct Service {
-    id: Uuid,
-    name: String,
-    url: String,
-    status: String,
-}
+mod config;
+mod models;
+mod repository;
+mod services;
+mod handlers;
+mod health;
+mod error;
 
-type ServiceDb = Mutex<Vec<Service>>;
-
-#[post("/services")]
-async fn register_service(service: web::Json<Service>, db: web::Data<ServiceDb>) -> impl Responder {
-    let mut services = db.lock().unwrap();
-    let new_service = Service {
-        id: Uuid::new_v4(),
-        status: "UP".to_string(),
-        ..service.into_inner()
-    };
-    services.push(new_service.clone());
-    HttpResponse::Ok().json(new_service)
-}
-
-#[get("/services/{id}")]
-async fn get_service(id: web::Path<Uuid>, db: web::Data<ServiceDb>) -> impl Responder {
-    let services = db.lock().unwrap();
-    if let Some(service) = services.iter().find(|&service| service.id == *id) {
-        HttpResponse::Ok().json(service)
-    } else {
-        HttpResponse::NotFound().finish()
-    }
-}
-
-#[put("/services/{id}")]
-async fn update_service(id: web::Path<Uuid>, service: web::Json<Service>, db: web::Data<ServiceDb>) -> impl Responder {
-    let mut services = db.lock().unwrap();
-    if let Some(existing_service) = services.iter_mut().find(|service| service.id == *id) {
-        *existing_service = service.into_inner();
-        HttpResponse::Ok().json(existing_service.clone())
-    } else {
-        HttpResponse::NotFound().finish()
-    }
-}
-
-#[delete("/services/{id}")]
-async fn delete_service(id: web::Path<Uuid>, db: web::Data<ServiceDb>) -> impl Responder {
-    let mut services = db.lock().unwrap();
-    if let Some(pos) = services.iter().position(|service| service.id == *id) {
-        services.remove(pos);
-        HttpResponse::NoContent().finish()
-    } else {
-        HttpResponse::NotFound().finish()
-    }
-}
-
-#[get("/services")]
-async fn list_services(db: web::Data<ServiceDb>) -> impl Responder {
-    let services = db.lock().unwrap();
-    HttpResponse::Ok().json(services.clone())
-}
-
-#[get("/services/health")]
-async fn health_check(db: web::Data<ServiceDb>) -> impl Responder {
-    let services = db.lock().unwrap();
-    let health_status: Vec<_> = services.iter().map(|service| {
-        let status = if service.status == "UP" { "Healthy" } else { "Unhealthy" };
-        (service.name.clone(), status)
-    }).collect();
-    HttpResponse::Ok().json(health_status)
+async fn health_check() -> impl Responder {
+    HttpResponse::Ok().json(serde_json::json!({ "status": "ok" }))
 }
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
-    env_logger::init();
+    // Initialize logging
+    tracing_subscriber::fmt::init();
+    
+    // Load configuration
+    let config = match config::load_config() {
+        Ok(config) => config,
+        Err(e) => {
+            tracing::error!("Failed to load config: {}", e);
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::Other,
+                "Failed to load configuration",
+            ));
+        }
+    };
+    
+    // Initialize Redis repository
+    let redis_client = match redis::Client::open(&config.redis.uri) {
+        Ok(client) => client,
+        Err(e) => {
+            tracing::error!("Failed to connect to Redis: {}", e);
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::Other, 
+                "Failed to connect to Redis",
+            ));
+        }
+    };
+    
+    // Initialize service repository
+    let repo = repository::ServiceRepository::new(redis_client.clone(), config.redis.clone());
+    
+    // Initialize HTTP client for health checks
+    let http_client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(5))
+        .build()
+        .expect("Failed to create HTTP client");
+        
+    // Initialize services
+    let discovery_service = web::Data::new(services::DiscoveryService::new(
+        repo.clone(),
+        config.clone(),
+    ));
+    
+    let health_service = web::Data::new(health::HealthService::new(
+        repo,
+        http_client,
+        config.health_check.clone(),
+    ));
+    
+    // Start health check background task
+    let health_service_clone = health_service.clone();
+    tokio::spawn(async move {
+        health::run_health_checker(health_service_clone.get_ref().clone()).await;
+    });
 
-    let service_db = web::Data::new(Mutex::new(Vec::<Service>::new()));
+    info!("Starting Discovery Service on port {}", config.server.port);
 
     HttpServer::new(move || {
         App::new()
+            .app_data(discovery_service.clone())
+            .app_data(health_service.clone())
+            .app_data(web::Data::new(config.clone()))
             .wrap(Logger::default())
-            .app_data(service_db.clone())
-            .service(register_service)
-            .service(get_service)
-            .service(update_service)
-            .service(delete_service)
-            .service(list_services)
-            .service(health_check)
+            .service(
+                web::scope("/api/v1")
+                    .route("/health", web::get().to(health_check))
+                    .service(handlers::discovery_routes())
+            )
     })
-    .bind("127.0.0.1:8080")?
+    .bind(format!("{}:{}", config.server.host, config.server.port))?
     .run()
     .await
 }

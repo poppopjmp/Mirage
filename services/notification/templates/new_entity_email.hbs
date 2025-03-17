@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>New Entity Detected</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 600px;
+            margin: 0 auto;
+        }
+        .header {
+            background-color: #4285F4;
+            color: white;
+            padding: 20px;
+            text-align: center;
+        }
+        .content {
+            padding: 20px;
+        }
+        .footer {
+            text-align: center;
+            font-size: 12px;
+            color: #777;
+            padding: 20px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
+        }
+        th {
+            background-color: #f2f2f2;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>New Entity Detected</h1>
+    </div>
+    <div class="content">
+        <p>A new <strong>{{ entity_type }}</strong> has been detected in the Mirage platform.</p>
+        
+        <h2>Entity Details</h2>
+        <table>
+            <tr>
+                <th>Type</th>
+                <td>{{ entity_type }}</td>
+            </tr>
+            <tr>
+                <th>Value</th>
+                <td>{{ value }}</td>
+            </tr>
+            <tr>
+                <th>Confidence</th>
+                <td>{{ confidence }}%</td>
+            </tr>
+            <tr>
+                <th>Date Detected</th>
+                <td>{{ created_at }}</td>
+            </tr>
+            {{#if source_module}}
+            <tr>
+                <th>Source Module</th>
+                <td>{{ source_module }}</td>
+            </tr>
+            {{/if}}
+        </table>
+        
+        {{#if additional_info}}
+        <h2>Additional Information</h2>
+        <p>{{ additional_info }}</p>
+        {{/if}}
+        
+        <p>You can view this entity in the Mirage platform by clicking the link below:</p>
+        <p><a href="{{dashboard_url}}/entities/{{entity_id}}">View Entity Details</a></p>
+    </div>
+    <div class="footer">
+        <p>This is an automated message from the Mirage OSINT Platform.</p>
+    </div>
+</body>
+</html>

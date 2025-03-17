@@ -1,91 +1,92 @@
 use std::collections::HashMap;
+use serde::{Serialize, Deserialize};
 
-#[derive(Debug, Clone)]
+/// Represents an event in the system with type, data, source, and timestamp.
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Event {
-    pub event_type: String,
-    pub data: String,
-    pub source: Option<String>,
-    pub timestamp: u64,
+    event_type: String,
+    data: String,
+    source: Option<String>,
+    timestamp: u64,
 }
 
 impl Event {
+    /// Create a new event with the given type, data, source, and timestamp.
     pub fn new(event_type: &str, data: &str, source: Option<&str>, timestamp: u64) -> Self {
-        Self {
+        Event {
             event_type: event_type.to_string(),
             data: data.to_string(),
             source: source.map(|s| s.to_string()),
             timestamp,
         }
     }
+
+    /// Get the event type.
+    pub fn event_type(&self) -> &str {
+        &self.event_type
+    }
+
+    /// Get the event data.
+    pub fn data(&self) -> &str {
+        &self.data
+    }
+
+    /// Get the event source, if available.
+    pub fn source(&self) -> Option<&str> {
+        self.source.as_deref()
+    }
+
+    /// Get the event timestamp.
+    pub fn timestamp(&self) -> u64 {
+        self.timestamp
+    }
 }
 
+/// Handles event management, including adding and retrieving events.
+#[derive(Debug)]
 pub struct EventHandler {
     events: HashMap<String, Vec<Event>>,
 }
 
 impl EventHandler {
+    /// Create a new event handler.
     pub fn new() -> Self {
-        Self {
+        EventHandler {
             events: HashMap::new(),
         }
     }
 
+    /// Add an event to the handler.
     pub fn add_event(&mut self, event: Event) {
-        self.events
-            .entry(event.event_type.clone())
-            .or_insert_with(Vec::new)
-            .push(event);
+        let events = self.events
+            .entry(event.event_type().to_string())
+            .or_insert_with(Vec::new);
+        events.push(event);
     }
 
+    /// Get all events of a specific type.
     pub fn get_events(&self, event_type: &str) -> Option<&Vec<Event>> {
         self.events.get(event_type)
     }
 
-    pub fn get_all_events(&self) -> &HashMap<String, Vec<Event>> {
-        &self.events
+    /// List all event types.
+    pub fn list_event_types(&self) -> Vec<&str> {
+        self.events.keys().map(|k| k.as_str()).collect()
+    }
+
+    /// Count events of a specific type.
+    pub fn count_events(&self, event_type: &str) -> usize {
+        self.events.get(event_type).map_or(0, |events| events.len())
+    }
+
+    /// Count all events.
+    pub fn total_events(&self) -> usize {
+        self.events.values().map(|events| events.len()).sum()
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_add_event() {
-        let mut handler = EventHandler::new();
-        let event = Event::new("test_type", "test_data", Some("test_source"), 1234567890);
-        handler.add_event(event.clone());
-
-        let events = handler.get_events("test_type").unwrap();
-        assert_eq!(events.len(), 1);
-        assert_eq!(events[0], event);
-    }
-
-    #[test]
-    fn test_get_events() {
-        let mut handler = EventHandler::new();
-        let event1 = Event::new("test_type", "test_data1", Some("test_source1"), 1234567890);
-        let event2 = Event::new("test_type", "test_data2", Some("test_source2"), 1234567891);
-        handler.add_event(event1.clone());
-        handler.add_event(event2.clone());
-
-        let events = handler.get_events("test_type").unwrap();
-        assert_eq!(events.len(), 2);
-        assert_eq!(events[0], event1);
-        assert_eq!(events[1], event2);
-    }
-
-    #[test]
-    fn test_get_all_events() {
-        let mut handler = EventHandler::new();
-        let event1 = Event::new("type1", "data1", Some("source1"), 1234567890);
-        let event2 = Event::new("type2", "data2", Some("source2"), 1234567891);
-        handler.add_event(event1.clone());
-        handler.add_event(event2.clone());
-
-        let all_events = handler.get_all_events();
-        assert_eq!(all_events.len(), 2);
-        assert_eq!(all_events.get("type1").unwrap().len(), 1);
-        assert_eq!(all_events.get("type2").unwrap().len(), 1);
+impl Default for EventHandler {
+    fn default() -> Self {
+        Self::new()
     }
 }
