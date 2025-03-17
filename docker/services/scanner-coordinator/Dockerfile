@@ -1,33 +1,48 @@
-FROM rust:1.75-slim-bookworm AS builder
+FROM rust:1.73-slim as builder
 
-# Install necessary dependencies
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    protobuf-compiler \
-    && rm -rf /var/lib/apt/lists/*
+# Install build dependencies
+RUN apt-get update && \
+    apt-get install -y pkg-config libssl-dev && \
+    rm -rf /var/lib/apt/lists/*
 
-WORKDIR /app
+# Create a new empty project
+RUN USER=root cargo new --bin scanner-coordinator
+WORKDIR /scanner-coordinator
 
-# Copy project files
-COPY . .
+# Copy manifests
+COPY ./services/scanner-coordinator/Cargo.toml ./Cargo.toml
+COPY ./common ./common
+COPY ./config/scanner-coordinator /app/config/scanner-coordinator
+# Build dependencies - this is the caching Docker layer
+RUN cargo build --release
+RUN rm src/*.rs
 
-# Build the application
+# Copy source code
+COPY ./services/scanner-coordinator/src ./src
+COPY ./config/scanner-coordinator /app/config/scanner-coordinator
+
+# Build for release
+RUN rm ./target/release/deps/mirage_api_gateway*
 RUN cargo build --release
 
-# Create a minimal image
-FROM debian:bookworm-slim
+# Runtime stage
+FROM debian:bullseye-slim
 
-# Copy the built executable
-COPY --from=builder /app/target/release/scanner-coordinator /usr/local/bin/scanner-coordinator
+# Install runtime dependencies
+RUN apt-get update && \
+    apt-get install -y ca-certificates && \
+    rm -rf /var/lib/apt/lists/*
 
-COPY --from=builder /app/target/release/scanner-coordinator /usr/local/bin/mirage-scanner-coordinator
-COPY --from=builder /app/config /app/config
+# Copy the binary and config from builder
+COPY --from=builder /scanner-coordinator/target/release/mirage-scanner-coordinator /usr/local/bin/
+COPY --from=builder /app/config/scanner-coordinator /app/config
 
-# Set environment variables
-ENV RUST_LOG=info
+WORKDIR /app
 ENV RUN_ENV=production
+ENV RUST_LOG=info
 
-# Expose the port the app runs on
-EXPOSE 8080
+# Expose the port
+EXPOSE 8000
 
-# Command to run the executable
+# Run the binary
 CMD ["mirage-scanner-coordinator"]

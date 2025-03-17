@@ -7,7 +7,7 @@ COPY ./web-ui/package*.json ./
 RUN npm ci
 
 # Copy the source code
-COPY ./web-ui ./
+COPY ./services/web-ui ./
 
 # Build the application
 RUN npm run build

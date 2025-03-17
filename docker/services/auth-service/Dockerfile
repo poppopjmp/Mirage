@@ -12,7 +12,7 @@ WORKDIR /auth-service
 # Copy manifests
 COPY ./services/auth-service/Cargo.toml ./Cargo.toml
 COPY ./common ./common
-
+COPY ./config/auth-service /app/config/auth-service
 # Build dependencies - this is the caching Docker layer
 RUN cargo build --release
 RUN rm src/*.rs
@@ -35,7 +35,7 @@ RUN apt-get update && \
 
 # Copy the binary and config from builder
 COPY --from=builder /auth-service/target/release/mirage-auth-service /usr/local/bin/
-COPY --from=builder /app/config /app/config
+COPY --from=builder /app/config/auth-service /app/config
 
 WORKDIR /app
 ENV RUN_ENV=production

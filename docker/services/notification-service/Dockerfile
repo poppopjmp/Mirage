@@ -19,7 +19,6 @@ RUN rm src/*.rs
 
 # Copy source code
 COPY ./services/notification-service/src ./src
-COPY ./config/notification-service /app/config/notification-service
 
 # Build for release
 RUN rm ./target/release/deps/mirage_notification_service*
@@ -35,7 +34,6 @@ RUN apt-get update && \
 
 # Copy the binary and config from builder
 COPY --from=builder /notification-service/target/release/mirage-notification-service /usr/local/bin/
-COPY --from=builder /app/config /app/config
 
 WORKDIR /app
 ENV RUN_ENV=production

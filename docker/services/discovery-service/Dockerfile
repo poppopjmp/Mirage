@@ -35,7 +35,7 @@ RUN apt-get update && \
 
 # Copy the binary and config from builder
 COPY --from=builder /discovery-service/target/release/mirage-discovery-service /usr/local/bin/
-COPY --from=builder /app/config /app/config
+COPY --from=builder /app/config/discovery-service /app/config
 
 WORKDIR /app
 ENV RUN_ENV=production

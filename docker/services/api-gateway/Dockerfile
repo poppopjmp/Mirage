@@ -12,7 +12,7 @@ WORKDIR /api-gateway
 # Copy manifests
 COPY ./services/api-gateway/Cargo.toml ./Cargo.toml
 COPY ./common ./common
-
+COPY ./config/api-gateway /app/config/api-gateway
 # Build dependencies - this is the caching Docker layer
 RUN cargo build --release
 RUN rm src/*.rs
@@ -35,7 +35,7 @@ RUN apt-get update && \
 
 # Copy the binary and config from builder
 COPY --from=builder /api-gateway/target/release/mirage-api-gateway /usr/local/bin/
-COPY --from=builder /app/config /app/config
+COPY --from=builder /app/config/api-gateway /app/config
 
 WORKDIR /app
 ENV RUN_ENV=production

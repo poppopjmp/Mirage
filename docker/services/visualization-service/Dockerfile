@@ -19,7 +19,6 @@ RUN rm src/*.rs
 
 # Copy source code
 COPY ./services/visualization-service/src ./src
-COPY ./config/visualization-service /app/config/visualization-service
 
 # Build for release
 RUN rm ./target/release/deps/mirage_visualization_service*
@@ -35,7 +34,6 @@ RUN apt-get update && \
 
 # Copy the binary and config from builder
 COPY --from=builder /visualization-service/target/release/mirage-visualization-service /usr/local/bin/
-COPY --from=builder /app/config /app/config
 
 WORKDIR /app
 ENV RUN_ENV=production

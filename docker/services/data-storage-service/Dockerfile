@@ -19,7 +19,6 @@ RUN rm src/*.rs
 
 # Copy source code
 COPY ./services/data-storage-service/src ./src
-COPY ./config/data-storage-service /app/config/data-storage-service
 
 # Build for release
 RUN rm ./target/release/deps/mirage_data_storage_service*
@@ -35,7 +34,7 @@ RUN apt-get update && \
 
 # Copy the binary and config from builder
 COPY --from=builder /data-storage-service/target/release/mirage-data-storage-service /usr/local/bin/
-COPY --from=builder /app/config /app/config
+
 
 WORKDIR /app
 ENV RUN_ENV=production

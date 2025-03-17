@@ -1,6 +1,10 @@
+//! Utility functions for the Mirage platform
+
 use chrono::{DateTime, Utc, TimeZone};
+use rand::{distributions::Alphanumeric, Rng};
 use uuid::Uuid;
 use std::net::IpAddr;
+use std::time::{SystemTime, UNIX_EPOCH};
 
 /// Utility functions for IP address operations
 pub mod ip {
@@ -155,4 +159,60 @@ pub fn normalize_url(url: &str) -> String {
     }
     
     normalized
+}
+
+/// Generate a random string of specified length
+pub fn random_string(length: usize) -> String {
+    rand::thread_rng()
+        .sample_iter(&Alphanumeric)
+        .take(length)
+        .map(char::from)
+        .collect()
+}
+
+/// Convert a DateTime to Unix timestamp (seconds since epoch)
+pub fn datetime_to_timestamp(dt: &DateTime<Utc>) -> u64 {
+    dt.timestamp() as u64
+}
+
+/// Get current Unix timestamp
+pub fn current_timestamp() -> u64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .expect("Time went backwards")
+        .as_secs()
+}
+
+/// Format a UUID to a standard string without hyphens
+pub fn format_uuid_compact(id: &Uuid) -> String {
+    id.to_string().replace("-", "")
+}
+
+/// Truncate a string to max length with ellipsis
+pub fn truncate_string(s: &str, max_length: usize) -> String {
+    if s.len() <= max_length {
+        s.to_string()
+    } else {
+        format!("{}...", &s[0..max_length - 3])
+    }
+}
+
+/// Split a comma-separated string into a vector of strings
+pub fn split_comma_separated(s: &str) -> Vec<String> {
+    s.split(',')
+        .map(|item| item.trim().to_string())
+        .filter(|item| !item.is_empty())
+        .collect()
+}
+
+/// Check if a string is a valid UUID
+pub fn is_valid_uuid(s: &str) -> bool {
+    Uuid::parse_str(s).is_ok()
+}
+
+/// Create a sanitized version of a string for filenames
+pub fn sanitize_filename(s: &str) -> String {
+    s.chars()
+        .map(|c| if c.is_alphanumeric() || c == '-' || c == '_' || c == '.' { c } else { '_' })
+        .collect()
 }

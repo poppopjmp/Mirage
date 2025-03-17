@@ -19,7 +19,6 @@ RUN rm src/*.rs
 
 # Copy source code
 COPY ./services/user-management-service/src ./src
-COPY ./config/user-management-service /app/config/user-management-service
 
 # Build for release
 RUN rm ./target/release/deps/mirage_user_management_service*
@@ -35,8 +34,6 @@ RUN apt-get update && \
 
 # Copy the binary and config from builder
 COPY --from=builder /user-management-service/target/release/mirage-user-management-service /usr/local/bin/
-COPY --from=builder /app/config /app/config
-
 WORKDIR /app
 ENV RUN_ENV=production
 ENV RUST_LOG=info

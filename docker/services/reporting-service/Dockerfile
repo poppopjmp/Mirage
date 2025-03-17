@@ -19,7 +19,6 @@ RUN rm src/*.rs
 
 # Copy source code
 COPY ./services/reporting-service/src ./src
-COPY ./config/reporting-service /app/config/reporting-service
 
 # Build for release
 RUN rm ./target/release/deps/mirage_reporting_service*
@@ -35,7 +34,6 @@ RUN apt-get update && \
 
 # Copy the binary and config from builder
 COPY --from=builder /reporting-service/target/release/mirage-reporting-service /usr/local/bin/
-COPY --from=builder /app/config /app/config
 
 WORKDIR /app
 ENV RUN_ENV=production

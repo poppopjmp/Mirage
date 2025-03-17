@@ -35,7 +35,7 @@ RUN apt-get update && \
 
 # Copy the binary and config from builder
 COPY --from=builder /integration-service/target/release/mirage-integration-service /usr/local/bin/
-COPY --from=builder /app/config /app/config
+COPY --from=builder /app/config/integration-service /app/config
 
 # Create plugins directory
 RUN mkdir -p /app/plugins

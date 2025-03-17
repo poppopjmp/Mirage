@@ -152,3 +152,59 @@ pub struct UserInfo {
     pub roles: Vec<String>,
     pub created_at: DateTime<Utc>,
 }
+
+// Target models
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Target {
+    pub id: Uuid,
+    pub target_type: TargetType,
+    pub value: String,
+    pub metadata: Option<serde_json::Value>,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub enum TargetType {
+    #[serde(rename = "domain")]
+    Domain,
+    #[serde(rename = "ip_address")]
+    IpAddress,
+    #[serde(rename = "url")]
+    Url,
+    #[serde(rename = "email")]
+    Email,
+    #[serde(rename = "person")]
+    Person,
+    #[serde(rename = "organization")]
+    Organization,
+    #[serde(rename = "phone_number")]
+    PhoneNumber,
+    #[serde(rename = "social_media")]
+    SocialMedia,
+    #[serde(rename = "custom")]
+    Custom(String),
+}
+
+// Authentication models
+#[derive(Debug, Serialize, Deserialize)]
+pub struct AuthRequest {
+    pub username: String,
+    pub password: String,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct AuthResponse {
+    pub token: String,
+    pub token_type: String,
+    pub expires_in: u64,
+    pub user: UserInfo,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct TokenClaims {
+    pub sub: String,  // Subject (user ID)
+    pub exp: u64,     // Expiration time
+    pub iat: u64,     // Issued at
+    pub roles: Vec<String>, // User roles
+}

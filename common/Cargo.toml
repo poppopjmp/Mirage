@@ -3,10 +3,28 @@ name = "mirage-common"
 version = "0.1.0"
 edition = "2021"
 description = "Common utilities for the Mirage OSINT platform"
+authors = ["Mirage Team"]
 
 [dependencies]
+# Core dependencies from workspace
 thiserror = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 uuid = { workspace = true }
 chrono = { workspace = true }
+anyhow = { workspace = true }
+tracing = { workspace = true }
+
+# Additional dependencies
+tokio = { workspace = true }
+async-trait = { workspace = true }
+reqwest = { workspace = true }
+url = "2.4"
+regex = "1.9"
+once_cell = { workspace = true }
+futures = { workspace = true }
+rand = { workspace = true }
+
+[dev-dependencies]
+tokio-test = "0.4"
+mockall = "0.11"

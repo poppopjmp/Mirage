@@ -19,7 +19,7 @@ RUN rm src/*.rs
 
 # Copy source code
 COPY ./services/data-collection-service/src ./src
-COPY ./config/data-collection-service /app/config/data-collection-service
+
 
 # Build for release
 RUN rm ./target/release/deps/mirage_data_collection_service*
@@ -35,7 +35,7 @@ RUN apt-get update && \
 
 # Copy the binary and config from builder
 COPY --from=builder /data-collection-service/target/release/mirage-data-collection-service /usr/local/bin/
-COPY --from=builder /app/config /app/config
+
 
 WORKDIR /app
 ENV RUN_ENV=production

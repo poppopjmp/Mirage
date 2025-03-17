@@ -19,7 +19,6 @@ RUN rm src/*.rs
 
 # Copy source code
 COPY ./services/module-registry-service/src ./src
-COPY ./config/module-registry-service /app/config/module-registry-service
 
 # Build for release
 RUN rm ./target/release/deps/mirage_module_registry_service*
@@ -35,7 +34,6 @@ RUN apt-get update && \
 
 # Copy the binary and config from builder
 COPY --from=builder /module-registry-service/target/release/mirage-module-registry-service /usr/local/bin/
-COPY --from=builder /app/config /app/config
 
 # Create modules directory
 RUN mkdir -p /app/modules

@@ -1,40 +1,46 @@
-FROM golang:1.20-alpine as builder
+FROM rust:1.73-slim as builder
 
-WORKDIR /app
+# Install build dependencies
+RUN apt-get update && \
+    apt-get install -y pkg-config libssl-dev && \
+    rm -rf /var/lib/apt/lists/*
 
-# Copy Go module manifests
-COPY ./services/configuration-service/go.mod ./
-COPY ./services/configuration-service/go.sum ./
+# Create a new empty project
+RUN USER=root cargo new --bin configuration-service
+WORKDIR /configuration-service
 
-# Cache dependencies
-RUN go mod download
+# Copy manifests
+COPY ./services/configuration-service/Cargo.toml ./Cargo.toml
+COPY ./common ./common
+
+# Build dependencies - this is the caching Docker layer
+RUN cargo build --release
+RUN rm src/*.rs
 
 # Copy source code
-COPY ./services/configuration-service ./
+COPY ./services/configuration-service/src ./src
 
-# Build the binary
-RUN CGO_ENABLED=0 go build -o configuration-service .
+# Build for release
+RUN rm ./target/release/deps/mirage_correlation_engine_service*
+RUN cargo build --release
 
-# Use a small alpine image for the final container
-FROM alpine:3.18
+# Runtime stage
+FROM debian:bullseye-slim
 
-# Install certificates for HTTPS
-RUN apk add --no-cache ca-certificates
+# Install runtime dependencies
+RUN apt-get update && \
+    apt-get install -y ca-certificates && \
+    rm -rf /var/lib/apt/lists/*
+
+# Copy the binary and config from builder
+COPY --from=builder /configuration-service/target/release/mirage-configuration-service /usr/local/bin/
 
 WORKDIR /app
-
-# Copy the binary from the builder stage
-COPY --from=builder /app/configuration-service /app/
-COPY --from=builder /app/config /app/config
-
-# Create config directory
-RUN mkdir -p /app/config
-
 ENV RUN_ENV=production
-ENV LOG_LEVEL=info
+ENV RUST_LOG=info
 
-# Expose the service port
-EXPOSE 8012
+# Expose the port
+EXPOSE 8007
 
 # Run the binary
-CMD ["/app/configuration-service"]
+CMD ["mirage-configuration-service"]
