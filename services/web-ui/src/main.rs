@@ -3,6 +3,7 @@ use actix_web::middleware::Logger;
 use serde::{Deserialize, Serialize};
 use std::sync::Mutex;
 use uuid::Uuid;
+use log::{info, warn, error}; // P1372
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct Scan {
@@ -23,6 +24,7 @@ async fn create_scan(scan: web::Json<Scan>, db: web::Data<ScanDb>) -> impl Respo
         ..scan.into_inner()
     };
     scans.push(new_scan.clone());
+    info!("Created new scan: {:?}", new_scan); // P1372
     HttpResponse::Ok().json(new_scan)
 }
 
@@ -30,8 +32,10 @@ async fn create_scan(scan: web::Json<Scan>, db: web::Data<ScanDb>) -> impl Respo
 async fn get_scan(id: web::Path<Uuid>, db: web::Data<ScanDb>) -> impl Responder {
     let scans = db.lock().unwrap();
     if let Some(scan) = scans.iter().find(|&scan| scan.id == *id) {
+        info!("Fetched scan: {:?}", scan); // P1372
         HttpResponse::Ok().json(scan)
     } else {
+        warn!("Scan not found: {:?}", id); // P1372
         HttpResponse::NotFound().finish()
     }
 }
@@ -41,8 +45,10 @@ async fn update_scan(id: web::Path<Uuid>, scan: web::Json<Scan>, db: web::Data<S
     let mut scans = db.lock().unwrap();
     if let Some(existing_scan) = scans.iter_mut().find(|scan| scan.id == *id) {
         *existing_scan = scan.into_inner();
+        info!("Updated scan: {:?}", existing_scan); // P1372
         HttpResponse::Ok().json(existing_scan.clone())
     } else {
+        warn!("Scan not found: {:?}", id); // P1372
         HttpResponse::NotFound().finish()
     }
 }
@@ -52,8 +58,10 @@ async fn delete_scan(id: web::Path<Uuid>, db: web::Data<ScanDb>) -> impl Respond
     let mut scans = db.lock().unwrap();
     if let Some(pos) = scans.iter().position(|scan| scan.id == *id) {
         scans.remove(pos);
+        info!("Deleted scan: {:?}", id); // P1372
         HttpResponse::NoContent().finish()
     } else {
+        warn!("Scan not found: {:?}", id); // P1372
         HttpResponse::NotFound().finish()
     }
 }
@@ -61,6 +69,7 @@ async fn delete_scan(id: web::Path<Uuid>, db: web::Data<ScanDb>) -> impl Respond
 #[get("/scans")]
 async fn list_scans(db: web::Data<ScanDb>) -> impl Responder {
     let scans = db.lock().unwrap();
+    info!("Listing all scans"); // P1372
     HttpResponse::Ok().json(scans.clone())
 }
 
@@ -83,6 +92,7 @@ async fn create_event(event: web::Json<Event>, db: web::Data<EventDb>) -> impl R
         ..event.into_inner()
     };
     events.push(new_event.clone());
+    info!("Created new event: {:?}", new_event); // P1372
     HttpResponse::Ok().json(new_event)
 }
 
@@ -90,8 +100,10 @@ async fn create_event(event: web::Json<Event>, db: web::Data<EventDb>) -> impl R
 async fn get_event(id: web::Path<Uuid>, db: web::Data<EventDb>) -> impl Responder {
     let events = db.lock().unwrap();
     if let Some(event) = events.iter().find(|&event| event.id == *id) {
+        info!("Fetched event: {:?}", event); // P1372
         HttpResponse::Ok().json(event)
     } else {
+        warn!("Event not found: {:?}", id); // P1372
         HttpResponse::NotFound().finish()
     }
 }
@@ -101,8 +113,10 @@ async fn update_event(id: web::Path<Uuid>, event: web::Json<Event>, db: web::Dat
     let mut events = db.lock().unwrap();
     if let Some(existing_event) = events.iter_mut().find(|event| event.id == *id) {
         *existing_event = event.into_inner();
+        info!("Updated event: {:?}", existing_event); // P1372
         HttpResponse::Ok().json(existing_event.clone())
     } else {
+        warn!("Event not found: {:?}", id); // P1372
         HttpResponse::NotFound().finish()
     }
 }
@@ -112,8 +126,10 @@ async fn delete_event(id: web::Path<Uuid>, db: web::Data<EventDb>) -> impl Respo
     let mut events = db.lock().unwrap();
     if let Some(pos) = events.iter().position(|event| event.id == *id) {
         events.remove(pos);
+        info!("Deleted event: {:?}", id); // P1372
         HttpResponse::NoContent().finish()
     } else {
+        warn!("Event not found: {:?}", id); // P1372
         HttpResponse::NotFound().finish()
     }
 }
@@ -121,6 +137,7 @@ async fn delete_event(id: web::Path<Uuid>, db: web::Data<EventDb>) -> impl Respo
 #[get("/events")]
 async fn list_events(db: web::Data<EventDb>) -> impl Responder {
     let events = db.lock().unwrap();
+    info!("Listing all events"); // P1372
     HttpResponse::Ok().json(events.clone())
 }
 
