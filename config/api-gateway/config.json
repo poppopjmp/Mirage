@@ -1,0 +1,20 @@
+{
+  "server": {
+    "port": 8000,
+    "host": "0.0.0.0"
+  },
+  "services": {
+    "auth": {
+      "url": "http://auth-service:8001"
+    },
+    "user-management": {
+      "url": "http://user-management:3000"
+    },
+    "module-registry": {
+      "url": "http://module-registry:8080"
+    }
+  },
+  "logging": {
+    "level": "info"
+  }
+}

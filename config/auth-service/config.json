@@ -1,0 +1,17 @@
+{
+  "server": {
+    "port": 8001,
+    "host": "0.0.0.0"
+  },
+  "database": {
+    "host": "db",
+    "port": 5432,
+    "username": "mirage",
+    "password": "mirage_password",
+    "dbname": "mirage_auth"
+  },
+  "jwt": {
+    "secret": "your-secret-key",
+    "expiresIn": "24h"
+  }
+}
