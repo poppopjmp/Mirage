@@ -40,6 +40,72 @@ Mirage follows a microservices architecture with the following key components:
 
 See [architecture.md](architecture.md) for detailed architecture information.
 
+## Core Functionalities
+
+### Event Handling
+
+The core module provides detailed implementations for event handling. Events are represented by the `Event` struct, which includes fields for event type, data, source, and timestamp. The `EventHandler` struct manages events, allowing you to add, retrieve, and list events.
+
+Example usage:
+
+```rust
+use core::event::{Event, EventHandler};
+
+let mut handler = EventHandler::new();
+let event = Event::new("test_type", "test_data", Some("test_source"), 1234567890);
+handler.add_event(event);
+
+let events = handler.get_events("test_type").unwrap();
+println!("{:?}", events);
+```
+
+### Target Management
+
+The core module also includes target management functionalities. Targets are represented by the `Target` struct, which includes fields for id, name, and description. The `TargetManager` struct manages targets, allowing you to add, retrieve, remove, and list targets.
+
+Example usage:
+
+```rust
+use core::target::{Target, TargetManager};
+
+let mut manager = TargetManager::new();
+let target = Target::new("1", "Test Target", "This is a test target.");
+manager.add_target(target);
+
+let retrieved_target = manager.get_target("1").unwrap();
+println!("{:?}", retrieved_target);
+```
+
+### Helper Functions
+
+The core module provides helper functions for validating email addresses, URLs, and IP addresses.
+
+Example usage:
+
+```rust
+use core::helpers::{is_valid_email, is_valid_url, is_valid_ip};
+
+assert!(is_valid_email("test@example.com"));
+assert!(is_valid_url("http://example.com"));
+assert!(is_valid_ip("192.168.0.1"));
+```
+
+## Correlation Functionalities
+
+The correlations module provides detailed implementations for correlation rules. Each rule is defined in a separate file and includes logic for identifying relationships and patterns in the collected data.
+
+### Cloud Bucket Open Rule
+
+The `cloud_bucket_open.rs` file implements the correlation rule for detecting open cloud buckets. It includes logic for identifying publicly accessible cloud storage buckets and generating alerts.
+
+### DNS Zone Transfer Rule
+
+The `dns_zone_transfer.rs` file implements the correlation rule for detecting DNS zone transfers. It includes logic for identifying unauthorized DNS zone transfers and generating alerts.
+
+### Email Breach Rule
+
+The `email_breach.rs` file implements the correlation rule for detecting email breaches. It includes logic for identifying compromised email addresses and generating alerts.
+
 ## Getting Started
 
 Documentation for setup, configuration, and development is available in the [docs](docs) directory.

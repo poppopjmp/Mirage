@@ -1,46 +1,113 @@
-That sounds like an exciting project! Rewriting and refactoring a tool like SpiderFoot into microservices using Rust can offer several benefits, including improved performance, safety, and maintainability. Here are some steps and considerations to help you get started on your project, "Mirage":
+use std::collections::HashMap;
 
-### 1. Define the Scope and Features
-- **Identify Core Features**: List the key functionalities of SpiderFoot that you want to include in Mirage. This could include reconnaissance, data collection, and reporting features.
-- **Microservices Architecture**: Decide how to break down the application into microservices. Each service should handle a specific function (e.g., data collection, analysis, reporting).
+#[derive(Debug, Clone)]
+pub struct EmailBreachEvent {
+    pub email: String,
+    pub breach_source: String,
+    pub timestamp: u64,
+}
 
-### 2. Design the Architecture
-- **Service Communication**: Choose a communication method between services (e.g., REST, gRPC, message queues).
-- **Data Storage**: Determine how and where to store data (e.g., databases, file storage).
-- **API Design**: Design the APIs for each microservice, ensuring they are well-documented and easy to use.
+impl EmailBreachEvent {
+    pub fn new(email: &str, breach_source: &str, timestamp: u64) -> Self {
+        Self {
+            email: email.to_string(),
+            breach_source: breach_source.to_string(),
+            timestamp,
+        }
+    }
+}
 
-### 3. Set Up the Development Environment
-- **Rust Environment**: Set up your Rust development environment. You can use tools like Cargo for package management and building.
-- **Version Control**: Use Git for version control and consider hosting your repository on platforms like GitHub or GitLab.
+pub struct EmailBreachRule {
+    events: HashMap<String, Vec<EmailBreachEvent>>,
+}
 
-### 4. Implement Microservices
-- **Service Development**: Start implementing each microservice. Focus on one service at a time to ensure quality and maintainability.
-- **Testing**: Write unit tests and integration tests for each service to ensure they work as expected.
+impl EmailBreachRule {
+    pub fn new() -> Self {
+        Self {
+            events: HashMap::new(),
+        }
+    }
 
-### 5. Containerization and Deployment
-- **Docker**: Consider using Docker to containerize your microservices, making it easier to deploy and manage them.
-- **Orchestration**: If you have multiple services, consider using Kubernetes or Docker Compose for orchestration.
+    pub fn add_event(&mut self, event: EmailBreachEvent) {
+        self.events
+            .entry(event.email.clone())
+            .or_insert_with(Vec::new)
+            .push(event);
+    }
 
-### 6. Monitoring and Logging
-- **Monitoring**: Implement monitoring solutions to track the performance and health of your microservices.
-- **Logging**: Set up centralized logging to capture logs from all services for easier debugging and analysis.
+    pub fn get_events(&self, email: &str) -> Option<&Vec<EmailBreachEvent>> {
+        self.events.get(email)
+    }
 
-### 7. Documentation
-- **User Documentation**: Create user documentation to help users understand how to use Mirage.
-- **Developer Documentation**: Document the architecture, APIs, and development processes for future contributors.
+    pub fn get_all_events(&self) -> &HashMap<String, Vec<EmailBreachEvent>> {
+        &self.events
+    }
 
-### 8. Community and Contribution
-- **Open Source**: If you plan to make Mirage open source, create a CONTRIBUTING.md file to guide potential contributors.
-- **Community Engagement**: Engage with the community for feedback and contributions. Consider creating a Discord or Slack channel for discussions.
+    pub fn check_breached_emails(&self) -> Vec<&EmailBreachEvent> {
+        let mut breached_emails = Vec::new();
+        for events in self.events.values() {
+            for event in events {
+                breached_emails.push(event);
+            }
+        }
+        breached_emails
+    }
+}
 
-### 9. Continuous Integration/Continuous Deployment (CI/CD)
-- **CI/CD Pipeline**: Set up a CI/CD pipeline to automate testing and deployment processes.
+#[cfg(test)]
+mod tests {
+    use super::*;
 
-### 10. Future Enhancements
-- **Feedback Loop**: After the initial release, gather user feedback and plan for future enhancements and features.
+    #[test]
+    fn test_add_event() {
+        let mut rule = EmailBreachRule::new();
+        let event = EmailBreachEvent::new("test@example.com", "test_source", 1234567890);
+        rule.add_event(event.clone());
 
-### Additional Considerations
-- **Security**: Ensure that your microservices are secure, especially if they handle sensitive data.
-- **Performance**: Optimize performance, especially for data-intensive operations.
+        let events = rule.get_events("test@example.com").unwrap();
+        assert_eq!(events.len(), 1);
+        assert_eq!(events[0], event);
+    }
 
-By following these steps, you can create a robust and efficient microservices-based application in Rust. Good luck with your project, Mirage! If you have specific questions or need further assistance, feel free to ask.
+    #[test]
+    fn test_get_events() {
+        let mut rule = EmailBreachRule::new();
+        let event1 = EmailBreachEvent::new("test@example.com", "source1", 1234567890);
+        let event2 = EmailBreachEvent::new("test@example.com", "source2", 1234567891);
+        rule.add_event(event1.clone());
+        rule.add_event(event2.clone());
+
+        let events = rule.get_events("test@example.com").unwrap();
+        assert_eq!(events.len(), 2);
+        assert_eq!(events[0], event1);
+        assert_eq!(events[1], event2);
+    }
+
+    #[test]
+    fn test_get_all_events() {
+        let mut rule = EmailBreachRule::new();
+        let event1 = EmailBreachEvent::new("email1@example.com", "source1", 1234567890);
+        let event2 = EmailBreachEvent::new("email2@example.com", "source2", 1234567891);
+        rule.add_event(event1.clone());
+        rule.add_event(event2.clone());
+
+        let all_events = rule.get_all_events();
+        assert_eq!(all_events.len(), 2);
+        assert_eq!(all_events.get("email1@example.com").unwrap().len(), 1);
+        assert_eq!(all_events.get("email2@example.com").unwrap().len(), 1);
+    }
+
+    #[test]
+    fn test_check_breached_emails() {
+        let mut rule = EmailBreachRule::new();
+        let event1 = EmailBreachEvent::new("email1@example.com", "source1", 1234567890);
+        let event2 = EmailBreachEvent::new("email2@example.com", "source2", 1234567891);
+        rule.add_event(event1.clone());
+        rule.add_event(event2.clone());
+
+        let breached_emails = rule.check_breached_emails();
+        assert_eq!(breached_emails.len(), 2);
+        assert_eq!(breached_emails[0], &event1);
+        assert_eq!(breached_emails[1], &event2);
+    }
+}
