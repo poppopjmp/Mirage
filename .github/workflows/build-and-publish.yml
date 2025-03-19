@@ -79,7 +79,7 @@ jobs:
 
       - name: Upload artifacts
         if: steps.check_dir.outputs.directory_exists == 'true'
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.service }}-binary
           path: services/${{ matrix.service }}/target/release/${{ matrix.service }}
