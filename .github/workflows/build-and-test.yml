@@ -27,7 +27,7 @@ jobs:
           - libs/mirage-middleware
 
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       
       - name: Install Rust
         uses: actions-rs/toolchain@v1
@@ -82,7 +82,7 @@ jobs:
         working-directory: services/web-ui
         
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -110,7 +110,7 @@ jobs:
         working-directory: services/integration-service
         
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       
       - name: Setup Python
         uses: actions/setup-python@v4
