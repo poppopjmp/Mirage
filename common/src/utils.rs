@@ -3,13 +3,11 @@
 use chrono::{DateTime, Utc};
 use rand::{distributions::Alphanumeric, Rng};
 use uuid::Uuid;
-use std::net::IpAddr;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 /// Utility functions for IP address operations
 pub mod ip {
-    use super::*;
-    use std::net::{IpAddr};
+    use std::net::IpAddr;
     use std::str::FromStr;
 
     pub fn is_valid_ip(ip: &str) -> bool {
