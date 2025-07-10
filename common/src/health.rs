@@ -1,7 +1,7 @@
 //! Health check utilities
 
-use serde::{Deserialize, Serialize};
 use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct HealthStatus {
@@ -30,21 +30,27 @@ impl HealthStatus {
             checks: Vec::new(),
         }
     }
-    
-    pub fn add_check(&mut self, name: &str, status: &str, message: Option<String>, duration_ms: Option<u64>) {
+
+    pub fn add_check(
+        &mut self,
+        name: &str,
+        status: &str,
+        message: Option<String>,
+        duration_ms: Option<u64>,
+    ) {
         self.checks.push(HealthCheck {
             name: name.to_string(),
             status: status.to_string(),
             message,
             duration_ms,
         });
-        
+
         // Update overall status based on checks
         if self.checks.iter().any(|check| check.status != "healthy") {
             self.status = "unhealthy".to_string();
         }
     }
-    
+
     pub fn is_healthy(&self) -> bool {
         self.status == "healthy"
     }

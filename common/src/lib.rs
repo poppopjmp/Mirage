@@ -1,14 +1,14 @@
 //! Common functionality for Mirage OSINT platform
 
-pub mod error;
-pub mod models;
-pub mod utils;
-pub mod target;
+pub mod auth;
 pub mod config;
 pub mod database;
-pub mod auth;
-pub mod health;
+pub mod error;
 pub mod event;
+pub mod health;
+pub mod models;
+pub mod target;
+pub mod utils;
 
 // Re-exports
 pub use error::{Error, Result};

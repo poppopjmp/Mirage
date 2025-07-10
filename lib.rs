@@ -1,5 +1,5 @@
 //! Mirage OSINT Platform Workspace
-//! 
+//!
 //! This is the root workspace crate that provides common functionality
 //! and serves as the main entry point for the Mirage platform.
 

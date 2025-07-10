@@ -1,11 +1,11 @@
-use actix_web::{web, HttpResponse, Responder, Error, post, get, put, delete};
+use actix_web::{delete, get, post, put, web, Error, HttpResponse, Responder};
 use mirage_common::Error as CommonError;
 use uuid::Uuid;
 
-use crate::services::ConfigService;
 use crate::models::{
-    CreateConfigRequest, UpdateConfigRequest, CreateNamespaceRequest, ConfigQueryParams
+    ConfigQueryParams, CreateConfigRequest, CreateNamespaceRequest, UpdateConfigRequest,
 };
+use crate::services::ConfigService;
 
 pub fn config_routes() -> actix_web::Scope {
     web::scope("/config")
@@ -29,20 +29,20 @@ async fn create_config(
 ) -> Result<HttpResponse, Error> {
     // Mock user ID for testing
     let user_id = Some("config-api".to_string());
-    
-    let result = config_service.create_config(request.into_inner(), user_id).await
-        .map_err(|e| {
-            match e {
-                CommonError::NotFound(_) => actix_web::error::ErrorNotFound(e),
-                CommonError::Validation(_) => actix_web::error::ErrorBadRequest(e),
-                CommonError::Conflict(_) => actix_web::error::ErrorConflict(e),
-                _ => {
-                    tracing::error!("Error creating configuration: {}", e);
-                    actix_web::error::ErrorInternalServerError(e)
-                }
+
+    let result = config_service
+        .create_config(request.into_inner(), user_id)
+        .await
+        .map_err(|e| match e {
+            CommonError::NotFound(_) => actix_web::error::ErrorNotFound(e),
+            CommonError::Validation(_) => actix_web::error::ErrorBadRequest(e),
+            CommonError::Conflict(_) => actix_web::error::ErrorConflict(e),
+            _ => {
+                tracing::error!("Error creating configuration: {}", e);
+                actix_web::error::ErrorInternalServerError(e)
             }
         })?;
-    
+
     Ok(HttpResponse::Created().json(result))
 }
 
@@ -51,21 +51,20 @@ async fn get_config(
     id: web::Path<String>,
     config_service: web::Data<ConfigService>,
 ) -> Result<HttpResponse, Error> {
-    let config_id = Uuid::parse_str(&id).map_err(|_| {
-        actix_web::error::ErrorBadRequest("Invalid config ID format")
-    })?;
-    
-    let config = config_service.get_config(config_id).await
-        .map_err(|e| {
-            match e {
-                CommonError::NotFound(_) => actix_web::error::ErrorNotFound(e),
-                _ => {
-                    tracing::error!("Error fetching configuration: {}", e);
-                    actix_web::error::ErrorInternalServerError(e)
-                }
+    let config_id = Uuid::parse_str(&id)
+        .map_err(|_| actix_web::error::ErrorBadRequest("Invalid config ID format"))?;
+
+    let config = config_service
+        .get_config(config_id)
+        .await
+        .map_err(|e| match e {
+            CommonError::NotFound(_) => actix_web::error::ErrorNotFound(e),
+            _ => {
+                tracing::error!("Error fetching configuration: {}", e);
+                actix_web::error::ErrorInternalServerError(e)
             }
         })?;
-    
+
     Ok(HttpResponse::Ok().json(config))
 }
 
@@ -75,18 +74,18 @@ async fn get_config_by_key(
     config_service: web::Data<ConfigService>,
 ) -> Result<HttpResponse, Error> {
     let (namespace, key) = path.into_inner();
-    
-    let config = config_service.get_config_by_key(&key, &namespace).await
-        .map_err(|e| {
-            match e {
-                CommonError::NotFound(_) => actix_web::error::ErrorNotFound(e),
-                _ => {
-                    tracing::error!("Error fetching configuration: {}", e);
-                    actix_web::error::ErrorInternalServerError(e)
-                }
+
+    let config = config_service
+        .get_config_by_key(&key, &namespace)
+        .await
+        .map_err(|e| match e {
+            CommonError::NotFound(_) => actix_web::error::ErrorNotFound(e),
+            _ => {
+                tracing::error!("Error fetching configuration: {}", e);
+                actix_web::error::ErrorInternalServerError(e)
             }
         })?;
-    
+
     Ok(HttpResponse::Ok().json(config))
 }
 
@@ -96,25 +95,24 @@ async fn update_config(
     request: web::Json<UpdateConfigRequest>,
     config_service: web::Data<ConfigService>,
 ) -> Result<HttpResponse, Error> {
-    let config_id = Uuid::parse_str(&id).map_err(|_| {
-        actix_web::error::ErrorBadRequest("Invalid config ID format")
-    })?;
-    
+    let config_id = Uuid::parse_str(&id)
+        .map_err(|_| actix_web::error::ErrorBadRequest("Invalid config ID format"))?;
+
     // Mock user ID for testing
     let user_id = Some("config-api".to_string());
-    
-    let config = config_service.update_config(config_id, request.into_inner(), user_id).await
-        .map_err(|e| {
-            match e {
-                CommonError::NotFound(_) => actix_web::error::ErrorNotFound(e),
-                CommonError::Validation(_) => actix_web::error::ErrorBadRequest(e),
-                _ => {
-                    tracing::error!("Error updating configuration: {}", e);
-                    actix_web::error::ErrorInternalServerError(e)
-                }
+
+    let config = config_service
+        .update_config(config_id, request.into_inner(), user_id)
+        .await
+        .map_err(|e| match e {
+            CommonError::NotFound(_) => actix_web::error::ErrorNotFound(e),
+            CommonError::Validation(_) => actix_web::error::ErrorBadRequest(e),
+            _ => {
+                tracing::error!("Error updating configuration: {}", e);
+                actix_web::error::ErrorInternalServerError(e)
             }
         })?;
-    
+
     Ok(HttpResponse::Ok().json(config))
 }
 
@@ -123,24 +121,23 @@ async fn delete_config(
     id: web::Path<String>,
     config_service: web::Data<ConfigService>,
 ) -> Result<HttpResponse, Error> {
-    let config_id = Uuid::parse_str(&id).map_err(|_| {
-        actix_web::error::ErrorBadRequest("Invalid config ID format")
-    })?;
-    
+    let config_id = Uuid::parse_str(&id)
+        .map_err(|_| actix_web::error::ErrorBadRequest("Invalid config ID format"))?;
+
     // Mock user ID for testing
     let user_id = Some("config-api");
-    
-    config_service.delete_config(config_id, user_id).await
-        .map_err(|e| {
-            match e {
-                CommonError::NotFound(_) => actix_web::error::ErrorNotFound(e),
-                _ => {
-                    tracing::error!("Error deleting configuration: {}", e);
-                    actix_web::error::ErrorInternalServerError(e)
-                }
+
+    config_service
+        .delete_config(config_id, user_id)
+        .await
+        .map_err(|e| match e {
+            CommonError::NotFound(_) => actix_web::error::ErrorNotFound(e),
+            _ => {
+                tracing::error!("Error deleting configuration: {}", e);
+                actix_web::error::ErrorInternalServerError(e)
             }
         })?;
-    
+
     Ok(HttpResponse::NoContent().finish())
 }
 
@@ -155,19 +152,15 @@ async fn list_configs(
     let key_contains = query.key_contains.as_deref();
     let page = query.page.unwrap_or(1);
     let per_page = query.per_page.unwrap_or(20).min(100);
-    
-    let result = config_service.list_configs(
-        namespace,
-        tag,
-        key_contains,
-        page,
-        per_page
-    ).await
-    .map_err(|e| {
-        tracing::error!("Error listing configurations: {}", e);
-        actix_web::error::ErrorInternalServerError(e)
-    })?;
-    
+
+    let result = config_service
+        .list_configs(namespace, tag, key_contains, page, per_page)
+        .await
+        .map_err(|e| {
+            tracing::error!("Error listing configurations: {}", e);
+            actix_web::error::ErrorInternalServerError(e)
+        })?;
+
     Ok(HttpResponse::Ok().json(result))
 }
 
@@ -176,21 +169,20 @@ async fn get_config_history(
     id: web::Path<String>,
     config_service: web::Data<ConfigService>,
 ) -> Result<HttpResponse, Error> {
-    let config_id = Uuid::parse_str(&id).map_err(|_| {
-        actix_web::error::ErrorBadRequest("Invalid config ID format")
-    })?;
-    
-    let history = config_service.get_config_history(config_id).await
-        .map_err(|e| {
-            match e {
-                CommonError::NotFound(_) => actix_web::error::ErrorNotFound(e),
-                _ => {
-                    tracing::error!("Error fetching configuration history: {}", e);
-                    actix_web::error::ErrorInternalServerError(e)
-                }
+    let config_id = Uuid::parse_str(&id)
+        .map_err(|_| actix_web::error::ErrorBadRequest("Invalid config ID format"))?;
+
+    let history = config_service
+        .get_config_history(config_id)
+        .await
+        .map_err(|e| match e {
+            CommonError::NotFound(_) => actix_web::error::ErrorNotFound(e),
+            _ => {
+                tracing::error!("Error fetching configuration history: {}", e);
+                actix_web::error::ErrorInternalServerError(e)
             }
         })?;
-    
+
     Ok(HttpResponse::Ok().json(history))
 }
 
@@ -201,18 +193,18 @@ async fn create_namespace(
 ) -> Result<HttpResponse, Error> {
     // Mock user ID for testing
     let user_id = Some("config-api");
-    
-    let result = config_service.create_namespace(request.into_inner(), user_id).await
-        .map_err(|e| {
-            match e {
-                CommonError::Conflict(_) => actix_web::error::ErrorConflict(e),
-                _ => {
-                    tracing::error!("Error creating namespace: {}", e);
-                    actix_web::error::ErrorInternalServerError(e)
-                }
+
+    let result = config_service
+        .create_namespace(request.into_inner(), user_id)
+        .await
+        .map_err(|e| match e {
+            CommonError::Conflict(_) => actix_web::error::ErrorConflict(e),
+            _ => {
+                tracing::error!("Error creating namespace: {}", e);
+                actix_web::error::ErrorInternalServerError(e)
             }
         })?;
-    
+
     Ok(HttpResponse::Created().json(result))
 }
 
@@ -223,13 +215,15 @@ async fn list_namespaces(
 ) -> Result<HttpResponse, Error> {
     let page = query.page.unwrap_or(1);
     let per_page = query.per_page.unwrap_or(20).min(100);
-    
-    let result = config_service.list_namespaces(page, per_page).await
+
+    let result = config_service
+        .list_namespaces(page, per_page)
+        .await
         .map_err(|e| {
             tracing::error!("Error listing namespaces: {}", e);
             actix_web::error::ErrorInternalServerError(e)
         })?;
-    
+
     Ok(HttpResponse::Ok().json(result))
 }
 
@@ -239,17 +233,17 @@ async fn get_raw_config_value(
     config_service: web::Data<ConfigService>,
 ) -> Result<HttpResponse, Error> {
     let (namespace, key) = path.into_inner();
-    
-    let value = config_service.get_raw_config_value(&key, &namespace).await
-        .map_err(|e| {
-            match e {
-                CommonError::NotFound(_) => actix_web::error::ErrorNotFound(e),
-                _ => {
-                    tracing::error!("Error fetching raw configuration value: {}", e);
-                    actix_web::error::ErrorInternalServerError(e)
-                }
+
+    let value = config_service
+        .get_raw_config_value(&key, &namespace)
+        .await
+        .map_err(|e| match e {
+            CommonError::NotFound(_) => actix_web::error::ErrorNotFound(e),
+            _ => {
+                tracing::error!("Error fetching raw configuration value: {}", e);
+                actix_web::error::ErrorInternalServerError(e)
             }
         })?;
-    
+
     Ok(HttpResponse::Ok().json(value))
 }

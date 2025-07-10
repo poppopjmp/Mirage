@@ -4,28 +4,28 @@ use thiserror::Error;
 pub enum IntegrationError {
     #[error("Database error: {0}")]
     Database(String),
-    
+
     #[error("Validation error: {0}")]
     Validation(String),
-    
+
     #[error("Not found: {0}")]
     NotFound(String),
-    
+
     #[error("Provider error: {0}")]
     Provider(String),
-    
+
     #[error("Authentication error: {0}")]
     Authentication(String),
-    
+
     #[error("External API error: {0}")]
     ExternalApi(String),
-    
+
     #[error("Crypto error: {0}")]
     Crypto(String),
-    
+
     #[error("Scheduling error: {0}")]
     Scheduling(String),
-    
+
     #[error("Internal error: {0}")]
     Internal(String),
 }
@@ -67,11 +67,17 @@ impl From<IntegrationError> for mirage_common::Error {
             IntegrationError::Database(msg) => mirage_common::Error::Database(msg),
             IntegrationError::Validation(msg) => mirage_common::Error::Validation(msg),
             IntegrationError::NotFound(msg) => mirage_common::Error::NotFound(msg),
-            IntegrationError::Provider(msg) => mirage_common::Error::Internal(format!("Provider error: {}", msg)),
+            IntegrationError::Provider(msg) => {
+                mirage_common::Error::Internal(format!("Provider error: {}", msg))
+            }
             IntegrationError::Authentication(msg) => mirage_common::Error::Unauthorized(msg),
             IntegrationError::ExternalApi(msg) => mirage_common::Error::ExternalApi(msg),
-            IntegrationError::Crypto(msg) => mirage_common::Error::Internal(format!("Crypto error: {}", msg)),
-            IntegrationError::Scheduling(msg) => mirage_common::Error::Internal(format!("Scheduling error: {}", msg)),
+            IntegrationError::Crypto(msg) => {
+                mirage_common::Error::Internal(format!("Crypto error: {}", msg))
+            }
+            IntegrationError::Scheduling(msg) => {
+                mirage_common::Error::Internal(format!("Scheduling error: {}", msg))
+            }
             IntegrationError::Internal(msg) => mirage_common::Error::Internal(msg),
         }
     }

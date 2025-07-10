@@ -1,11 +1,11 @@
 use crate::config::{AppConfig, ServiceConfig};
-use crate::models::{ScanTarget, CreateTargetRequest};
 use crate::error::{ScannerError, ScannerResult};
+use crate::models::{CreateTargetRequest, ScanTarget};
 use reqwest::Client;
+use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use std::sync::Arc;
 use uuid::Uuid;
-use std::collections::HashMap;
-use serde::{Serialize, Deserialize};
 
 #[derive(Clone)]
 pub struct IntegrationService {
@@ -63,7 +63,7 @@ impl IntegrationService {
             config: Arc::new(config),
         }
     }
-    
+
     pub async fn create_collection_task(
         &self,
         target: &ScanTarget,
@@ -84,29 +84,29 @@ impl IntegrationService {
             priority,
             scan_id: Some(target.scan_id),
         };
-        
+
         // Send request to data collection service
-        let url = format!("{}/api/v1/collection/tasks", self.config.data_collection.url);
-        
-        let response = self.client.post(&url)
-            .json(&request)
-            .send()
-            .await?;
-            
+        let url = format!(
+            "{}/api/v1/collection/tasks",
+            self.config.data_collection.url
+        );
+
+        let response = self.client.post(&url).json(&request).send().await?;
+
         if !response.status().is_success() {
             let status = response.status();
             let error = response.text().await?;
             return Err(ScannerError::Integration(format!(
-                "Failed to create collection task: {} - {}", 
+                "Failed to create collection task: {} - {}",
                 status, error
             )));
         }
-        
+
         let task_response: TaskResponse = response.json().await?;
-        
+
         Ok(task_response.id)
     }
-    
+
     pub async fn create_batch_collection_tasks(
         &self,
         targets: &[ScanTarget],
@@ -115,7 +115,8 @@ impl IntegrationService {
         priority: Option<i32>,
     ) -> ScannerResult<Vec<Uuid>> {
         // Convert scan targets to collection targets
-        let collection_targets: Vec<CollectionTarget> = targets.iter()
+        let collection_targets: Vec<CollectionTarget> = targets
+            .iter()
             .map(|t| CollectionTarget {
                 target_type: t.target_type.clone(),
                 value: t.value.clone(),
@@ -123,7 +124,7 @@ impl IntegrationService {
                 entity_id: None,
             })
             .collect();
-            
+
         // Create batch request
         let request = serde_json::json!({
             "targets": collection_targets,
@@ -132,27 +133,27 @@ impl IntegrationService {
             "priority": priority,
             "scan_id": targets.first().map(|t| t.scan_id)
         });
-        
+
         // Send request to data collection service
-        let url = format!("{}/api/v1/collection/batch", self.config.data_collection.url);
-        
-        let response = self.client.post(&url)
-            .json(&request)
-            .send()
-            .await?;
-            
+        let url = format!(
+            "{}/api/v1/collection/batch",
+            self.config.data_collection.url
+        );
+
+        let response = self.client.post(&url).json(&request).send().await?;
+
         if !response.status().is_success() {
             let status = response.status();
             let error = response.text().await?;
             return Err(ScannerError::Integration(format!(
-                "Failed to create batch collection tasks: {} - {}", 
+                "Failed to create batch collection tasks: {} - {}",
                 status, error
             )));
         }
-        
+
         // Parse response to get task IDs
         let batch_response: serde_json::Value = response.json().await?;
-        
+
         let mut task_ids = Vec::new();
         if let Some(tasks) = batch_response["tasks"].as_array() {
             for task in tasks {
@@ -163,29 +164,30 @@ impl IntegrationService {
                 }
             }
         }
-        
+
         Ok(task_ids)
     }
-    
+
     pub async fn get_module_info(&self, module_id: &Uuid) -> ScannerResult<ModuleInfo> {
         // Fetch module info from module registry
-        let url = format!("{}/api/v1/modules/{}", self.config.module_registry.url, module_id);
-        
-        let response = self.client.get(&url)
-            .send()
-            .await?;
-            
+        let url = format!(
+            "{}/api/v1/modules/{}",
+            self.config.module_registry.url, module_id
+        );
+
+        let response = self.client.get(&url).send().await?;
+
         if !response.status().is_success() {
             let status = response.status();
             let error = response.text().await?;
             return Err(ScannerError::Integration(format!(
-                "Failed to fetch module info: {} - {}", 
+                "Failed to fetch module info: {} - {}",
                 status, error
             )));
         }
-        
+
         let module_info: ModuleInfo = response.json().await?;
-        
+
         Ok(module_info)
     }
 }

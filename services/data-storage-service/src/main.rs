@@ -1,7 +1,4 @@
-use actix_web::{
-    web, App, HttpServer, middleware::Logger,
-    HttpResponse, Responder,
-};
+use actix_web::{middleware::Logger, web, App, HttpResponse, HttpServer, Responder};
 use tracing::info;
 
 mod config;
@@ -18,7 +15,7 @@ async fn health_check() -> impl Responder {
 async fn main() -> std::io::Result<()> {
     // Initialize logging
     tracing_subscriber::fmt::init();
-    
+
     // Load configuration
     let config = match config::load_config() {
         Ok(config) => config,
@@ -61,7 +58,10 @@ async fn main() -> std::io::Result<()> {
         mongo_client.clone(),
     ));
 
-    info!("Starting Data Storage Service on port {}", config.server.port);
+    info!(
+        "Starting Data Storage Service on port {}",
+        config.server.port
+    );
 
     HttpServer::new(move || {
         App::new()
@@ -73,7 +73,7 @@ async fn main() -> std::io::Result<()> {
             .service(
                 web::scope("/api/v1")
                     .route("/health", web::get().to(health_check))
-                    .service(handlers::storage_routes())
+                    .service(handlers::storage_routes()),
             )
     })
     .bind(format!("0.0.0.0:{}", config.server.port))?

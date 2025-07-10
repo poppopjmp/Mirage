@@ -4,16 +4,16 @@ use thiserror::Error;
 pub enum DiscoveryError {
     #[error("Redis error: {0}")]
     Redis(String),
-    
+
     #[error("Validation error: {0}")]
     Validation(String),
-    
+
     #[error("Not found: {0}")]
     NotFound(String),
-    
+
     #[error("Service error: {0}")]
     Service(String),
-    
+
     #[error("Internal error: {0}")]
     Internal(String),
 }

@@ -1,10 +1,13 @@
 use crate::config::DatabaseConfig;
-use crate::models::{Notification, NotificationDelivery, Subscription, NotificationStatus, NotificationType, NotificationChannel};
+use crate::models::{
+    Notification, NotificationChannel, NotificationDelivery, NotificationStatus, NotificationType,
+    Subscription,
+};
 use chrono::{DateTime, Utc};
 use mirage_common::{Error, Result};
-use sqlx::{postgres::PgPoolOptions, Pool, Postgres, query, query_as};
-use uuid::Uuid;
+use sqlx::{postgres::PgPoolOptions, query, query_as, Pool, Postgres};
 use std::collections::HashMap;
+use uuid::Uuid;
 
 pub type DbPool = Pool<Postgres>;
 
@@ -33,7 +36,7 @@ impl NotificationRepository {
     pub fn new(pool: DbPool) -> Self {
         Self { pool }
     }
-    
+
     pub async fn create_notification(&self, notification: &Notification) -> Result<Uuid> {
         let id = query!(
             r#"
@@ -57,10 +60,10 @@ impl NotificationRepository {
         .await
         .map_err(|e| Error::Database(format!("Failed to create notification: {}", e)))?
         .id;
-        
+
         Ok(id)
     }
-    
+
     pub async fn create_delivery(&self, delivery: &NotificationDelivery) -> Result<Uuid> {
         let id = query!(
             r#"
@@ -86,13 +89,13 @@ impl NotificationRepository {
         .await
         .map_err(|e| Error::Database(format!("Failed to create delivery: {}", e)))?
         .id;
-        
+
         Ok(id)
     }
-    
+
     pub async fn update_notification_status(
-        &self, 
-        notification_id: &Uuid, 
+        &self,
+        notification_id: &Uuid,
         status: NotificationStatus,
         processed_at: Option<DateTime<Utc>>,
     ) -> Result<()> {
@@ -104,7 +107,7 @@ impl NotificationRepository {
             status.to_string(),
             Utc::now(),
         );
-        
+
         if let Some(processed_time) = processed_at {
             builder = query!(
                 r#"
@@ -129,15 +132,15 @@ impl NotificationRepository {
                 notification_id,
             );
         }
-        
+
         builder
             .execute(&self.pool)
             .await
             .map_err(|e| Error::Database(format!("Failed to update notification status: {}", e)))?;
-            
+
         Ok(())
     }
-    
+
     pub async fn update_delivery_status(
         &self,
         delivery_id: &Uuid,
@@ -151,36 +154,39 @@ impl NotificationRepository {
         let mut updates = Vec::new();
         let mut params = vec![status.to_string(), Utc::now().into(), *delivery_id];
         let mut param_index = 3;
-        
+
         updates.push(format!("status = ${}", 1));
         updates.push(format!("updated_at = ${}", 2));
-        
+
         if let Some(error) = error_message {
             updates.push(format!("error_message = ${}", param_index));
             params.push(error.into());
             param_index += 1;
         }
-        
+
         if let Some(retries) = retry_count {
             updates.push(format!("retry_count = ${}", param_index));
             params.push(retries.into());
             param_index += 1;
         }
-        
+
         if let Some(next_retry) = next_retry_at {
             updates.push(format!("next_retry_at = ${}", param_index));
             params.push(next_retry.into());
             param_index += 1;
         }
-        
+
         if let Some(completed) = completed_at {
             updates.push(format!("completed_at = ${}", param_index));
             params.push(completed.into());
         }
-        
+
         let update_clause = updates.join(", ");
-        let sql = format!("UPDATE notification_deliveries SET {} WHERE id = $3", update_clause);
-        
+        let sql = format!(
+            "UPDATE notification_deliveries SET {} WHERE id = $3",
+            update_clause
+        );
+
         sqlx::query(&sql)
             .bind(status.to_string())
             .bind(Utc::now())
@@ -188,10 +194,10 @@ impl NotificationRepository {
             .execute(&self.pool)
             .await
             .map_err(|e| Error::Database(format!("Failed to update delivery status: {}", e)))?;
-            
+
         Ok(())
     }
-    
+
     pub async fn get_pending_deliveries(&self, limit: i64) -> Result<Vec<NotificationDelivery>> {
         let deliveries = sqlx::query_as!(
             NotificationDeliveryRecord,
@@ -209,7 +215,7 @@ impl NotificationRepository {
         .fetch_all(&self.pool)
         .await
         .map_err(|e| Error::Database(format!("Failed to fetch pending deliveries: {}", e)))?;
-        
+
         // Convert database records to domain objects
         let result = deliveries
             .into_iter()
@@ -227,10 +233,10 @@ impl NotificationRepository {
                 completed_at: record.completed_at,
             })
             .collect();
-            
+
         Ok(result)
     }
-    
+
     pub async fn get_notification(&self, notification_id: &Uuid) -> Result<Option<Notification>> {
         let record = sqlx::query_as!(
             NotificationRecord,
@@ -246,12 +252,12 @@ impl NotificationRepository {
         .fetch_optional(&self.pool)
         .await
         .map_err(|e| Error::Database(format!("Failed to fetch notification: {}", e)))?;
-        
+
         if let Some(record) = record {
             // Parse metadata JSON
-            let metadata: HashMap<String, String> = serde_json::from_value(record.metadata)
-                .unwrap_or_default();
-                
+            let metadata: HashMap<String, String> =
+                serde_json::from_value(record.metadata).unwrap_or_default();
+
             let notification = Notification {
                 id: record.id,
                 type_: NotificationType::from(record.type_),
@@ -263,14 +269,17 @@ impl NotificationRepository {
                 updated_at: record.updated_at,
                 processed_at: record.processed_at,
             };
-            
+
             Ok(Some(notification))
         } else {
             Ok(None)
         }
     }
-    
-    pub async fn get_notification_deliveries(&self, notification_id: &Uuid) -> Result<Vec<NotificationDelivery>> {
+
+    pub async fn get_notification_deliveries(
+        &self,
+        notification_id: &Uuid,
+    ) -> Result<Vec<NotificationDelivery>> {
         let deliveries = sqlx::query_as!(
             NotificationDeliveryRecord,
             r#"
@@ -285,7 +294,7 @@ impl NotificationRepository {
         .fetch_all(&self.pool)
         .await
         .map_err(|e| Error::Database(format!("Failed to fetch notification deliveries: {}", e)))?;
-        
+
         // Convert database records to domain objects
         let result = deliveries
             .into_iter()
@@ -303,10 +312,10 @@ impl NotificationRepository {
                 completed_at: record.completed_at,
             })
             .collect();
-            
+
         Ok(result)
     }
-    
+
     pub async fn create_subscription(&self, subscription: &Subscription) -> Result<Uuid> {
         let id = query!(
             r#"
@@ -330,16 +339,16 @@ impl NotificationRepository {
         .await
         .map_err(|e| Error::Database(format!("Failed to create subscription: {}", e)))?
         .id;
-        
+
         Ok(id)
     }
-    
+
     pub async fn get_subscriptions_for_notification_type(
         &self,
         notification_type: &NotificationType,
     ) -> Result<Vec<Subscription>> {
         let type_str = notification_type.to_string();
-        
+
         let subscriptions = sqlx::query_as!(
             SubscriptionRecord,
             r#"
@@ -354,15 +363,15 @@ impl NotificationRepository {
         .fetch_all(&self.pool)
         .await
         .map_err(|e| Error::Database(format!("Failed to fetch subscriptions: {}", e)))?;
-        
+
         // Convert database records to domain objects
         let result = subscriptions
             .into_iter()
             .map(|record| {
                 // Parse filter conditions JSON
-                let filter_conditions: HashMap<String, String> = serde_json::from_value(record.filter_conditions)
-                    .unwrap_or_default();
-                    
+                let filter_conditions: HashMap<String, String> =
+                    serde_json::from_value(record.filter_conditions).unwrap_or_default();
+
                 Subscription {
                     id: record.id,
                     notification_type: NotificationType::from(record.notification_type),
@@ -375,7 +384,7 @@ impl NotificationRepository {
                 }
             })
             .collect();
-            
+
         Ok(result)
     }
 }

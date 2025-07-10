@@ -1,17 +1,14 @@
-use actix_web::{
-    web, App, HttpServer, middleware::Logger,
-    HttpResponse, Responder,
-};
+use actix_web::{middleware::Logger, web, App, HttpResponse, HttpServer, Responder};
 use tracing::info;
 
 mod config;
+mod error;
+mod handlers;
+mod integrations;
 mod models;
 mod repositories;
-mod services;
-mod handlers;
 mod scheduler;
-mod integrations;
-mod error;
+mod services;
 
 async fn health_check() -> impl Responder {
     HttpResponse::Ok().json(serde_json::json!({ "status": "ok" }))
@@ -21,7 +18,7 @@ async fn health_check() -> impl Responder {
 async fn main() -> std::io::Result<()> {
     // Initialize logging
     tracing_subscriber::fmt::init();
-    
+
     // Load configuration
     let config = match config::load_config() {
         Ok(config) => config,
@@ -33,7 +30,7 @@ async fn main() -> std::io::Result<()> {
             ));
         }
     };
-    
+
     // Initialize database connection
     let db_pool = match repositories::create_db_pool(&config.database).await {
         Ok(pool) => pool,
@@ -45,36 +42,34 @@ async fn main() -> std::io::Result<()> {
             ));
         }
     };
-    
+
     // Initialize repositories
     let scan_repo = repositories::ScanRepository::new(db_pool.clone());
     let target_repo = repositories::ScanTargetRepository::new(db_pool.clone());
     let module_repo = repositories::ScanModuleRepository::new(db_pool.clone());
-    
+
     // Initialize HTTP client for external services
     let http_client = reqwest::Client::builder()
         .timeout(std::time::Duration::from_secs(30))
         .build()
         .expect("Failed to create HTTP client");
-    
+
     // Initialize Redis client for task queues
     let redis_client = match redis::Client::open(config.redis.uri.clone()) {
         Ok(client) => client,
         Err(e) => {
             tracing::error!("Failed to connect to Redis: {}", e);
             return Err(std::io::Error::new(
-                std::io::ErrorKind::Other, 
+                std::io::ErrorKind::Other,
                 "Failed to connect to Redis",
             ));
         }
     };
-    
+
     // Initialize services
-    let integration_service = integrations::IntegrationService::new(
-        http_client.clone(),
-        config.clone(),
-    );
-    
+    let integration_service =
+        integrations::IntegrationService::new(http_client.clone(), config.clone());
+
     let scheduler_service = scheduler::SchedulerService::new(
         redis_client.clone(),
         scan_repo.clone(),
@@ -82,7 +77,7 @@ async fn main() -> std::io::Result<()> {
         integration_service.clone(),
         config.clone(),
     );
-    
+
     let scanner_service = web::Data::new(services::ScannerService::new(
         scan_repo,
         target_repo,
@@ -91,14 +86,17 @@ async fn main() -> std::io::Result<()> {
         integration_service,
         config.clone(),
     ));
-    
+
     // Start scheduler background task
     let scheduler_config = config.clone();
     tokio::spawn(async move {
         scheduler::run_scheduler(scheduler_service, scheduler_config).await;
     });
 
-    info!("Starting Scanner Coordinator on port {}", config.server.port);
+    info!(
+        "Starting Scanner Coordinator on port {}",
+        config.server.port
+    );
 
     HttpServer::new(move || {
         App::new()
@@ -108,7 +106,7 @@ async fn main() -> std::io::Result<()> {
             .service(
                 web::scope("/api/v1")
                     .route("/health", web::get().to(health_check))
-                    .service(handlers::scanner_routes())
+                    .service(handlers::scanner_routes()),
             )
     })
     .bind(format!("0.0.0.0:{}", config.server.port))?

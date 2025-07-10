@@ -1,9 +1,9 @@
-use actix_web::{web, App, HttpServer, HttpResponse, Responder};
 use actix_web::middleware::Logger;
+use actix_web::{web, App, HttpResponse, HttpServer, Responder};
+use log::{error, info, warn};
 use serde::{Deserialize, Serialize};
 use std::sync::Mutex;
-use uuid::Uuid;
-use log::{info, warn, error}; // P1372
+use uuid::Uuid; // P1372
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct Scan {
@@ -41,7 +41,11 @@ async fn get_scan(id: web::Path<Uuid>, db: web::Data<ScanDb>) -> impl Responder 
 }
 
 #[put("/scans/{id}")]
-async fn update_scan(id: web::Path<Uuid>, scan: web::Json<Scan>, db: web::Data<ScanDb>) -> impl Responder {
+async fn update_scan(
+    id: web::Path<Uuid>,
+    scan: web::Json<Scan>,
+    db: web::Data<ScanDb>,
+) -> impl Responder {
     let mut scans = db.lock().unwrap();
     if let Some(existing_scan) = scans.iter_mut().find(|scan| scan.id == *id) {
         *existing_scan = scan.into_inner();
@@ -109,7 +113,11 @@ async fn get_event(id: web::Path<Uuid>, db: web::Data<EventDb>) -> impl Responde
 }
 
 #[put("/events/{id}")]
-async fn update_event(id: web::Path<Uuid>, event: web::Json<Event>, db: web::Data<EventDb>) -> impl Responder {
+async fn update_event(
+    id: web::Path<Uuid>,
+    event: web::Json<Event>,
+    db: web::Data<EventDb>,
+) -> impl Responder {
     let mut events = db.lock().unwrap();
     if let Some(existing_event) = events.iter_mut().find(|event| event.id == *id) {
         *existing_event = event.into_inner();

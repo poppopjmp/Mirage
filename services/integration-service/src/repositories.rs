@@ -1,14 +1,14 @@
-use crate::models::{
-    Integration, Credential, ExecutionRecord, 
-    IntegrationType, IntegrationStatus, AuthType, ExecutionStatus, ScheduleType
-};
-use crate::error::{IntegrationError, IntegrationResult};
 use crate::config::DatabaseConfig;
 use crate::crypto::CryptoService;
-use sqlx::{postgres::PgPoolOptions, Pool, Postgres, query, query_as};
+use crate::error::{IntegrationError, IntegrationResult};
+use crate::models::{
+    AuthType, Credential, ExecutionRecord, ExecutionStatus, Integration, IntegrationStatus,
+    IntegrationType, ScheduleType,
+};
 use chrono::{DateTime, Utc};
-use uuid::Uuid;
+use sqlx::{postgres::PgPoolOptions, query, query_as, Pool, Postgres};
 use std::collections::HashMap;
+use uuid::Uuid;
 
 pub type DbPool = Pool<Postgres>;
 
@@ -20,9 +20,7 @@ pub async fn create_db_pool(config: &DatabaseConfig) -> IntegrationResult<DbPool
         .await?;
 
     // Run migrations
-    sqlx::migrate!("./migrations")
-        .run(&pool)
-        .await?;
+    sqlx::migrate!("./migrations").run(&pool).await?;
 
     Ok(pool)
 }
@@ -36,7 +34,7 @@ impl IntegrationRepository {
     pub fn new(pool: DbPool) -> Self {
         Self { pool }
     }
-    
+
     // Create a new integration
     pub async fn create_integration(&self, integration: &Integration) -> IntegrationResult<()> {
         query!(
@@ -69,10 +67,10 @@ impl IntegrationRepository {
         )
         .execute(&self.pool)
         .await?;
-        
+
         Ok(())
     }
-    
+
     // Get integration by ID
     pub async fn get_integration_by_id(&self, id: &Uuid) -> IntegrationResult<Option<Integration>> {
         let row = query!(
@@ -90,11 +88,11 @@ impl IntegrationRepository {
         )
         .fetch_optional(&self.pool)
         .await?;
-        
+
         match row {
             Some(r) => {
                 let metadata: HashMap<String, String> = serde_json::from_value(r.metadata)?;
-                
+
                 Ok(Some(Integration {
                     id: r.id,
                     name: r.name,
@@ -114,11 +112,11 @@ impl IntegrationRepository {
                     error_message: r.error_message,
                     metadata,
                 }))
-            },
+            }
             None => Ok(None),
         }
     }
-    
+
     // Update integration
     pub async fn update_integration(&self, integration: &Integration) -> IntegrationResult<()> {
         query!(
@@ -155,19 +153,19 @@ impl IntegrationRepository {
         )
         .execute(&self.pool)
         .await?;
-        
+
         Ok(())
     }
-    
+
     // Delete integration
     pub async fn delete_integration(&self, id: &Uuid) -> IntegrationResult<()> {
         query!("DELETE FROM integrations WHERE id = $1", id)
             .execute(&self.pool)
             .await?;
-        
+
         Ok(())
     }
-    
+
     // List integrations with filtering
     pub async fn list_integrations(
         &self,
@@ -177,11 +175,11 @@ impl IntegrationRepository {
         tag: Option<&str>,
         name_contains: Option<&str>,
         page: u64,
-        per_page: u64
+        per_page: u64,
     ) -> IntegrationResult<(Vec<Integration>, u64)> {
         // Query with filtering and pagination
         let offset = (page - 1) * per_page;
-        
+
         let rows = query!(
             r#"
             SELECT 
@@ -199,11 +197,11 @@ impl IntegrationRepository {
         )
         .fetch_all(&self.pool)
         .await?;
-        
+
         let mut integrations = Vec::with_capacity(rows.len());
         for r in rows {
             let metadata: HashMap<String, String> = serde_json::from_value(r.metadata)?;
-            
+
             integrations.push(Integration {
                 id: r.id,
                 name: r.name,
@@ -224,23 +222,21 @@ impl IntegrationRepository {
                 metadata,
             });
         }
-        
+
         // Get total count
-        let total_count = query!(
-            r#"SELECT COUNT(*) as count FROM integrations"#
-        )
-        .fetch_one(&self.pool)
-        .await?
-        .count
-        .unwrap_or(0);
-        
+        let total_count = query!(r#"SELECT COUNT(*) as count FROM integrations"#)
+            .fetch_one(&self.pool)
+            .await?
+            .count
+            .unwrap_or(0);
+
         Ok((integrations, total_count as u64))
     }
-    
+
     // Get scheduled integrations
     pub async fn get_scheduled_integrations(&self) -> IntegrationResult<Vec<Integration>> {
         let now = Utc::now();
-        
+
         let rows = query!(
             r#"
             SELECT 
@@ -259,11 +255,11 @@ impl IntegrationRepository {
         )
         .fetch_all(&self.pool)
         .await?;
-        
+
         let mut integrations = Vec::with_capacity(rows.len());
         for r in rows {
             let metadata: HashMap<String, String> = serde_json::from_value(r.metadata)?;
-            
+
             integrations.push(Integration {
                 id: r.id,
                 name: r.name,
@@ -284,7 +280,7 @@ impl IntegrationRepository {
                 metadata,
             });
         }
-        
+
         Ok(integrations)
     }
 }
@@ -299,7 +295,7 @@ impl CredentialRepository {
     pub fn new(pool: DbPool, crypto: CryptoService) -> Self {
         Self { pool, crypto }
     }
-    
+
     // Create a new credential
     pub async fn create_credential(&self, credential: &Credential) -> IntegrationResult<()> {
         query!(
@@ -323,12 +319,15 @@ impl CredentialRepository {
         )
         .execute(&self.pool)
         .await?;
-        
+
         Ok(())
     }
-    
+
     // Get credentials for an integration
-    pub async fn get_credentials_for_integration(&self, integration_id: &Uuid) -> IntegrationResult<Vec<Credential>> {
+    pub async fn get_credentials_for_integration(
+        &self,
+        integration_id: &Uuid,
+    ) -> IntegrationResult<Vec<Credential>> {
         let rows = query!(
             r#"
             SELECT 
@@ -341,11 +340,11 @@ impl CredentialRepository {
         )
         .fetch_all(&self.pool)
         .await?;
-        
+
         let mut credentials = Vec::with_capacity(rows.len());
         for r in rows {
             let metadata: HashMap<String, String> = serde_json::from_value(r.metadata)?;
-            
+
             credentials.push(Credential {
                 id: r.id,
                 integration_id: r.integration_id,
@@ -359,10 +358,10 @@ impl CredentialRepository {
                 metadata,
             });
         }
-        
+
         Ok(credentials)
     }
-    
+
     // Get credential by ID
     pub async fn get_credential_by_id(&self, id: &Uuid) -> IntegrationResult<Option<Credential>> {
         let row = query!(
@@ -377,11 +376,11 @@ impl CredentialRepository {
         )
         .fetch_optional(&self.pool)
         .await?;
-        
+
         match row {
             Some(r) => {
                 let metadata: HashMap<String, String> = serde_json::from_value(r.metadata)?;
-                
+
                 Ok(Some(Credential {
                     id: r.id,
                     integration_id: r.integration_id,
@@ -394,15 +393,15 @@ impl CredentialRepository {
                     last_used: r.last_used,
                     metadata,
                 }))
-            },
+            }
             None => Ok(None),
         }
     }
-    
+
     // Update last used timestamp
     pub async fn update_credential_last_used(&self, id: &Uuid) -> IntegrationResult<()> {
         let now = Utc::now();
-        
+
         query!(
             r#"
             UPDATE credentials
@@ -414,24 +413,24 @@ impl CredentialRepository {
         )
         .execute(&self.pool)
         .await?;
-        
+
         Ok(())
     }
-    
+
     // Delete credential
     pub async fn delete_credential(&self, id: &Uuid) -> IntegrationResult<()> {
         query!("DELETE FROM credentials WHERE id = $1", id)
             .execute(&self.pool)
             .await?;
-        
+
         Ok(())
     }
-    
+
     // Encrypt credential data
     pub fn encrypt_data(&self, data: &str) -> IntegrationResult<String> {
         self.crypto.encrypt(data)
     }
-    
+
     // Decrypt credential data
     pub fn decrypt_data(&self, encrypted_data: &str) -> IntegrationResult<String> {
         self.crypto.decrypt(encrypted_data)
@@ -447,7 +446,7 @@ impl ExecutionRepository {
     pub fn new(pool: DbPool) -> Self {
         Self { pool }
     }
-    
+
     // Create a new execution record
     pub async fn create_execution_record(&self, record: &ExecutionRecord) -> IntegrationResult<()> {
         query!(
@@ -471,10 +470,10 @@ impl ExecutionRepository {
         )
         .execute(&self.pool)
         .await?;
-        
+
         Ok(())
     }
-    
+
     // Update execution record
     pub async fn update_execution_record(&self, record: &ExecutionRecord) -> IntegrationResult<()> {
         query!(
@@ -493,12 +492,15 @@ impl ExecutionRepository {
         )
         .execute(&self.pool)
         .await?;
-        
+
         Ok(())
     }
-    
+
     // Get execution record by ID
-    pub async fn get_execution_by_id(&self, id: &Uuid) -> IntegrationResult<Option<ExecutionRecord>> {
+    pub async fn get_execution_by_id(
+        &self,
+        id: &Uuid,
+    ) -> IntegrationResult<Option<ExecutionRecord>> {
         let row = query!(
             r#"
             SELECT 
@@ -511,28 +513,30 @@ impl ExecutionRepository {
         )
         .fetch_optional(&self.pool)
         .await?;
-        
+
         match row {
-            Some(r) => {
-                Ok(Some(ExecutionRecord {
-                    id: r.id,
-                    integration_id: r.integration_id,
-                    status: r.status,
-                    started_at: r.started_at,
-                    completed_at: r.completed_at,
-                    result_count: r.result_count,
-                    error_message: r.error_message,
-                    parameters: r.parameters,
-                    target: r.target,
-                    execution_time_ms: r.execution_time_ms,
-                }))
-            },
+            Some(r) => Ok(Some(ExecutionRecord {
+                id: r.id,
+                integration_id: r.integration_id,
+                status: r.status,
+                started_at: r.started_at,
+                completed_at: r.completed_at,
+                result_count: r.result_count,
+                error_message: r.error_message,
+                parameters: r.parameters,
+                target: r.target,
+                execution_time_ms: r.execution_time_ms,
+            })),
             None => Ok(None),
         }
     }
-    
+
     // Get recent executions for an integration
-    pub async fn get_recent_executions(&self, integration_id: &Uuid, limit: i64) -> IntegrationResult<Vec<ExecutionRecord>> {
+    pub async fn get_recent_executions(
+        &self,
+        integration_id: &Uuid,
+        limit: i64,
+    ) -> IntegrationResult<Vec<ExecutionRecord>> {
         let rows = query!(
             r#"
             SELECT 
@@ -548,7 +552,7 @@ impl ExecutionRepository {
         )
         .fetch_all(&self.pool)
         .await?;
-        
+
         let mut executions = Vec::with_capacity(rows.len());
         for r in rows {
             executions.push(ExecutionRecord {
@@ -564,7 +568,7 @@ impl ExecutionRepository {
                 execution_time_ms: r.execution_time_ms,
             });
         }
-        
+
         Ok(executions)
     }
 }

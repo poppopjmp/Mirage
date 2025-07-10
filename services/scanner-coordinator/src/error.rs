@@ -4,19 +4,19 @@ use thiserror::Error;
 pub enum ScannerError {
     #[error("Database error: {0}")]
     Database(String),
-    
+
     #[error("Validation error: {0}")]
     Validation(String),
-    
+
     #[error("Not found: {0}")]
     NotFound(String),
-    
+
     #[error("Integration error: {0}")]
     Integration(String),
-    
+
     #[error("Queue error: {0}")]
     Queue(String),
-    
+
     #[error("Internal error: {0}")]
     Internal(String),
 }
@@ -53,7 +53,9 @@ impl From<ScannerError> for mirage_common::Error {
             ScannerError::Validation(msg) => mirage_common::Error::Validation(msg),
             ScannerError::NotFound(msg) => mirage_common::Error::NotFound(msg),
             ScannerError::Integration(msg) => mirage_common::Error::ExternalApi(msg),
-            ScannerError::Queue(msg) => mirage_common::Error::Internal(format!("Queue error: {}", msg)),
+            ScannerError::Queue(msg) => {
+                mirage_common::Error::Internal(format!("Queue error: {}", msg))
+            }
             ScannerError::Internal(msg) => mirage_common::Error::Internal(msg),
         }
     }

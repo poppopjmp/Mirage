@@ -1,11 +1,11 @@
 use crate::config::{DatabaseConfig, ModuleStorageConfig};
 use crate::models::{Module, ModuleModel, ModuleStatus};
+use chrono::Utc;
 use mirage_common::{Error, Result};
-use sqlx::{postgres::PgPoolOptions, Pool, Postgres, query, query_as};
+use sqlx::{postgres::PgPoolOptions, query, query_as, Pool, Postgres};
 use std::fs;
 use std::path::Path;
 use uuid::Uuid;
-use chrono::Utc;
 
 pub type DbPool = Pool<Postgres>;
 
@@ -33,7 +33,10 @@ pub struct ModuleRepository {
 
 impl ModuleRepository {
     pub fn new(pool: DbPool, storage_config: ModuleStorageConfig) -> Self {
-        Self { pool, storage_config }
+        Self {
+            pool,
+            storage_config,
+        }
     }
 
     pub async fn create(&self, module: &ModuleModel) -> Result<ModuleModel> {
@@ -61,8 +64,9 @@ impl ModuleRepository {
         // Ensure the module storage directory exists
         let storage_dir = Path::new(&self.storage_config.path).join(module.name.clone());
         if !storage_dir.exists() {
-            fs::create_dir_all(&storage_dir)
-                .map_err(|e| Error::Internal(format!("Failed to create module directory: {}", e)))?;
+            fs::create_dir_all(&storage_dir).map_err(|e| {
+                Error::Internal(format!("Failed to create module directory: {}", e))
+            })?;
         }
 
         Ok(created)
@@ -88,7 +92,12 @@ impl ModuleRepository {
         Ok(modules)
     }
 
-    pub async fn find_by_capability(&self, capability: &str, limit: i64, offset: i64) -> Result<Vec<ModuleModel>> {
+    pub async fn find_by_capability(
+        &self,
+        capability: &str,
+        limit: i64,
+        offset: i64,
+    ) -> Result<Vec<ModuleModel>> {
         let modules = sqlx::query_as!(
             ModuleModel,
             r#"
@@ -176,7 +185,9 @@ impl ModuleRepository {
 
     pub async fn delete(&self, id: &Uuid) -> Result<bool> {
         // First, get the module name for directory cleanup
-        let module = self.find_by_id(id).await?
+        let module = self
+            .find_by_id(id)
+            .await?
             .ok_or_else(|| Error::NotFound(format!("Module with ID {} not found", id)))?;
 
         let result = sqlx::query!(
@@ -194,8 +205,9 @@ impl ModuleRepository {
         if result.rows_affected() > 0 {
             let storage_dir = Path::new(&self.storage_config.path).join(module.name);
             if storage_dir.exists() {
-                fs::remove_dir_all(storage_dir)
-                    .map_err(|e| Error::Internal(format!("Failed to delete module directory: {}", e)))?;
+                fs::remove_dir_all(storage_dir).map_err(|e| {
+                    Error::Internal(format!("Failed to delete module directory: {}", e))
+                })?;
             }
         }
 
@@ -222,9 +234,11 @@ impl ModuleRepository {
             module.created_at,
             module.updated_at,
             &module.capabilities as _,
-            serde_json::to_value(&module.parameters).map_err(|e| Error::Internal(format!("Failed to serialize parameters: {}", e)))?,
+            serde_json::to_value(&module.parameters)
+                .map_err(|e| Error::Internal(format!("Failed to serialize parameters: {}", e)))?,
             &module.required_capabilities as _,
-            serde_json::to_value(&module.metadata).map_err(|e| Error::Internal(format!("Failed to serialize metadata: {}", e)))?,
+            serde_json::to_value(&module.metadata)
+                .map_err(|e| Error::Internal(format!("Failed to serialize metadata: {}", e)))?,
             module.status.to_string(),
             module.file_path,
             module.hash,
@@ -233,10 +247,10 @@ impl ModuleRepository {
         .await
         .map_err(|e| Error::Database(format!("Failed to save module: {}", e)))?
         .id;
-        
+
         Ok(id)
     }
-    
+
     pub async fn find_by_id(&self, id: &Uuid) -> Result<Option<Module>> {
         let record = sqlx::query_as!(
             ModuleRecord,
@@ -253,13 +267,13 @@ impl ModuleRepository {
         .fetch_optional(&self.pool)
         .await
         .map_err(|e| Error::Database(format!("Failed to fetch module: {}", e)))?;
-        
+
         match record {
             Some(r) => Ok(Some(self.record_to_module(r)?)),
             None => Ok(None),
         }
     }
-    
+
     pub async fn find_by_name_version(&self, name: &str, version: &str) -> Result<Option<Module>> {
         let record = sqlx::query_as!(
             ModuleRecord,
@@ -277,13 +291,13 @@ impl ModuleRepository {
         .fetch_optional(&self.pool)
         .await
         .map_err(|e| Error::Database(format!("Failed to fetch module: {}", e)))?;
-        
+
         match record {
             Some(r) => Ok(Some(self.record_to_module(r)?)),
             None => Ok(None),
         }
     }
-    
+
     pub async fn find_all(
         &self,
         name: Option<&str>,
@@ -297,53 +311,50 @@ impl ModuleRepository {
         let mut conditions = Vec::new();
         let mut params = Vec::new();
         let mut param_index = 1;
-        
+
         if let Some(n) = name {
             conditions.push(format!("name ILIKE ${}", param_index));
             params.push(format!("%{}%", n));
             param_index += 1;
         }
-        
+
         if let Some(c) = capability {
             conditions.push(format!("${}::text = ANY(capabilities)", param_index));
             params.push(c.to_string());
             param_index += 1;
         }
-        
+
         if let Some(a) = author {
             conditions.push(format!("author ILIKE ${}", param_index));
             params.push(format!("%{}%", a));
             param_index += 1;
         }
-        
+
         if let Some(s) = status {
             conditions.push(format!("status = ${}", param_index));
             params.push(s.to_string());
             param_index += 1;
         }
-        
+
         // Construct WHERE clause
         let where_clause = if conditions.is_empty() {
             String::new()
         } else {
             format!("WHERE {}", conditions.join(" AND "))
         };
-        
+
         // Count total matching modules
-        let count_sql = format!(
-            "SELECT COUNT(*) AS count FROM modules {}", 
-            where_clause
-        );
-        
+        let count_sql = format!("SELECT COUNT(*) AS count FROM modules {}", where_clause);
+
         let count: i64 = sqlx::query_scalar(&count_sql)
             .fetch_one(&self.pool)
             .await
             .map_err(|e| Error::Database(format!("Failed to count modules: {}", e)))?;
-        
+
         // Calculate pagination
         let offset = (page - 1) * per_page;
         let limit = per_page;
-        
+
         // Query modules with pagination
         let query_sql = format!(
             r#"
@@ -358,21 +369,21 @@ impl ModuleRepository {
             "#,
             where_clause, limit, offset
         );
-        
+
         let records = sqlx::query_as::<_, ModuleRecord>(&query_sql)
             .fetch_all(&self.pool)
             .await
             .map_err(|e| Error::Database(format!("Failed to fetch modules: {}", e)))?;
-        
+
         // Convert records to modules
         let mut modules = Vec::with_capacity(records.len());
         for record in records {
             modules.push(self.record_to_module(record)?);
         }
-        
+
         Ok((modules, count as u64))
     }
-    
+
     pub async fn update(&self, module: &Module) -> Result<()> {
         sqlx::query!(
             r#"
@@ -390,19 +401,21 @@ impl ModuleRepository {
             module.description,
             module.updated_at,
             &module.capabilities as _,
-            serde_json::to_value(&module.parameters).map_err(|e| Error::Internal(format!("Failed to serialize parameters: {}", e)))?,
+            serde_json::to_value(&module.parameters)
+                .map_err(|e| Error::Internal(format!("Failed to serialize parameters: {}", e)))?,
             &module.required_capabilities as _,
-            serde_json::to_value(&module.metadata).map_err(|e| Error::Internal(format!("Failed to serialize metadata: {}", e)))?,
+            serde_json::to_value(&module.metadata)
+                .map_err(|e| Error::Internal(format!("Failed to serialize metadata: {}", e)))?,
             module.status.to_string(),
             module.id,
         )
         .execute(&self.pool)
         .await
         .map_err(|e| Error::Database(format!("Failed to update module: {}", e)))?;
-        
+
         Ok(())
     }
-    
+
     pub async fn delete(&self, id: &Uuid) -> Result<()> {
         let result = sqlx::query!(
             r#"
@@ -414,22 +427,22 @@ impl ModuleRepository {
         .execute(&self.pool)
         .await
         .map_err(|e| Error::Database(format!("Failed to delete module: {}", e)))?;
-        
+
         if result.rows_affected() == 0 {
             return Err(Error::NotFound(format!("Module with ID {} not found", id)));
         }
-        
+
         Ok(())
     }
-    
+
     // Convert database record to domain model
     fn record_to_module(&self, record: ModuleRecord) -> Result<Module> {
         let parameters = serde_json::from_value(record.parameters)
             .map_err(|e| Error::Internal(format!("Failed to deserialize parameters: {}", e)))?;
-            
+
         let metadata = serde_json::from_value(record.metadata)
             .map_err(|e| Error::Internal(format!("Failed to deserialize metadata: {}", e)))?;
-            
+
         let status = match record.status.as_str() {
             "active" => ModuleStatus::Active,
             "disabled" => ModuleStatus::Disabled,
@@ -437,7 +450,7 @@ impl ModuleRepository {
             "testing" => ModuleStatus::Testing,
             _ => ModuleStatus::Testing,
         };
-        
+
         Ok(Module {
             id: record.id,
             name: record.name,

@@ -1,7 +1,7 @@
-use serde::{Deserialize, Serialize};
-use uuid::Uuid;
 use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use uuid::Uuid;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct EntityNode {
@@ -72,7 +72,7 @@ pub struct GraphNode {
     pub confidence: u8,
     pub first_seen: DateTime<Utc>,
     pub last_seen: DateTime<Utc>,
-    pub importance: f32,  // Computed value based on centrality metrics
+    pub importance: f32, // Computed value based on centrality metrics
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -86,7 +86,7 @@ pub struct GraphRelationship {
     pub confidence: u8,
     pub first_seen: DateTime<Utc>,
     pub last_seen: DateTime<Utc>,
-    pub strength: f32,  // Computed value based on relationship analysis
+    pub strength: f32, // Computed value based on relationship analysis
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

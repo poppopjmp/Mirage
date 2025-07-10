@@ -2,8 +2,8 @@
 
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-use uuid::Uuid;
 use std::collections::HashMap;
+use uuid::Uuid;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct User {
@@ -98,7 +98,7 @@ impl<T> PaginatedResponse<T> {
         } else {
             0
         };
-        
+
         Self {
             items,
             total,
@@ -203,8 +203,8 @@ pub struct AuthResponse {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct TokenClaims {
-    pub sub: String,  // Subject (user ID)
-    pub exp: u64,     // Expiration time
-    pub iat: u64,     // Issued at
+    pub sub: String,        // Subject (user ID)
+    pub exp: u64,           // Expiration time
+    pub iat: u64,           // Issued at
     pub roles: Vec<String>, // User roles
 }

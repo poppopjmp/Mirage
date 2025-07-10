@@ -1,16 +1,13 @@
-use actix_web::{
-    web, App, HttpServer, middleware::Logger,
-    HttpResponse, Responder,
-};
+use actix_web::{middleware::Logger, web, App, HttpResponse, HttpServer, Responder};
 use tracing::info;
 
+mod audit;
 mod config;
+mod handlers;
 mod models;
 mod repositories;
 mod services;
-mod handlers;
 mod validation;
-mod audit;
 
 async fn health_check() -> impl Responder {
     HttpResponse::Ok().json(serde_json::json!({ "status": "ok" }))
@@ -20,7 +17,7 @@ async fn health_check() -> impl Responder {
 async fn main() -> std::io::Result<()> {
     // Initialize logging
     tracing_subscriber::fmt::init();
-    
+
     // Load configuration
     let config = match config::load_config() {
         Ok(config) => config,
@@ -32,7 +29,7 @@ async fn main() -> std::io::Result<()> {
             ));
         }
     };
-    
+
     // Initialize database connection
     let db_pool = match repositories::create_db_pool(&config.database).await {
         Ok(pool) => pool,
@@ -44,23 +41,23 @@ async fn main() -> std::io::Result<()> {
             ));
         }
     };
-    
+
     // Initialize Redis connection for caching
     let redis_client = match redis::Client::open(&config.redis.uri) {
         Ok(client) => client,
         Err(e) => {
             tracing::error!("Failed to connect to Redis: {}", e);
             return Err(std::io::Error::new(
-                std::io::ErrorKind::Other, 
+                std::io::ErrorKind::Other,
                 "Failed to connect to Redis",
             ));
         }
     };
-    
+
     // Initialize repositories
     let config_repo = repositories::ConfigRepository::new(db_pool.clone());
     let audit_repo = repositories::AuditRepository::new(db_pool.clone());
-    
+
     // Initialize services
     let audit_service = web::Data::new(audit::AuditService::new(audit_repo));
     let config_service = web::Data::new(services::ConfigService::new(
@@ -70,7 +67,10 @@ async fn main() -> std::io::Result<()> {
         config.clone(),
     ));
 
-    info!("Starting Configuration Service on port {}", config.server.port);
+    info!(
+        "Starting Configuration Service on port {}",
+        config.server.port
+    );
 
     HttpServer::new(move || {
         App::new()
@@ -81,7 +81,7 @@ async fn main() -> std::io::Result<()> {
             .service(
                 web::scope("/api/v1")
                     .route("/health", web::get().to(health_check))
-                    .service(handlers::config_routes())
+                    .service(handlers::config_routes()),
             )
     })
     .bind(format!("{}:{}", config.server.host, config.server.port))?

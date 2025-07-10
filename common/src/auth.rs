@@ -1,8 +1,8 @@
 //! Authentication and authorization utilities
 
-use serde::{Deserialize, Serialize};
-use chrono::{Duration, Utc};
 use crate::error::{Error, Result};
+use chrono::{Duration, Utc};
+use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Claims {
@@ -16,7 +16,7 @@ impl Claims {
     pub fn new(user_id: String, roles: Vec<String>, expires_in_hours: i64) -> Self {
         let now = Utc::now();
         let exp = now + Duration::hours(expires_in_hours);
-        
+
         Claims {
             sub: user_id,
             exp: exp.timestamp(),

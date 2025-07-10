@@ -1,13 +1,11 @@
-use crate::models::{
-    ConfigItem, ConfigVersion, ConfigNamespace, ConfigValueType, AuditLog
-};
 use crate::config::DatabaseConfig;
-use mirage_common::{Error, Result};
-use sqlx::{postgres::PgPoolOptions, Pool, Postgres, query, query_as};
-use uuid::Uuid;
+use crate::models::{AuditLog, ConfigItem, ConfigNamespace, ConfigValueType, ConfigVersion};
 use chrono::Utc;
+use mirage_common::{Error, Result};
+use sqlx::{postgres::PgPoolOptions, query, query_as, Pool, Postgres};
 use std::collections::HashMap;
 use std::str::FromStr;
+use uuid::Uuid;
 
 pub type DbPool = Pool<Postgres>;
 
@@ -36,7 +34,7 @@ impl ConfigRepository {
     pub fn new(pool: DbPool) -> Self {
         Self { pool }
     }
-    
+
     // Create a new configuration item
     pub async fn create_config(&self, config: &ConfigItem) -> Result<()> {
         query!(
@@ -67,10 +65,10 @@ impl ConfigRepository {
         .execute(&self.pool)
         .await
         .map_err(|e| Error::Database(format!("Failed to create config item: {}", e)))?;
-        
+
         Ok(())
     }
-    
+
     // Create a new version of a configuration item
     pub async fn create_config_version(&self, version: &ConfigVersion) -> Result<()> {
         query!(
@@ -91,10 +89,10 @@ impl ConfigRepository {
         .execute(&self.pool)
         .await
         .map_err(|e| Error::Database(format!("Failed to create config version: {}", e)))?;
-        
+
         Ok(())
     }
-    
+
     // Get a configuration item by ID
     pub async fn get_config_by_id(&self, id: &Uuid) -> Result<Option<ConfigItem>> {
         let row = query!(
@@ -111,17 +109,18 @@ impl ConfigRepository {
         .fetch_optional(&self.pool)
         .await
         .map_err(|e| Error::Database(format!("Failed to fetch config item: {}", e)))?;
-        
+
         match row {
             Some(r) => {
                 // Parse metadata
                 let metadata: HashMap<String, String> = serde_json::from_value(r.metadata)
                     .map_err(|e| Error::Internal(format!("Failed to parse metadata: {}", e)))?;
-                
+
                 // Parse value_type
-                let value_type = ConfigValueType::from_str(&r.value_type)
-                    .map_err(|_| Error::Internal(format!("Invalid value type: {}", r.value_type)))?;
-                
+                let value_type = ConfigValueType::from_str(&r.value_type).map_err(|_| {
+                    Error::Internal(format!("Invalid value type: {}", r.value_type))
+                })?;
+
                 Ok(Some(ConfigItem {
                     id: r.id,
                     key: r.key,
@@ -139,13 +138,17 @@ impl ConfigRepository {
                     tags: r.tags,
                     metadata,
                 }))
-            },
+            }
             None => Ok(None),
         }
     }
-    
+
     // Get a configuration item by key and namespace
-    pub async fn get_config_by_key(&self, key: &str, namespace: &str) -> Result<Option<ConfigItem>> {
+    pub async fn get_config_by_key(
+        &self,
+        key: &str,
+        namespace: &str,
+    ) -> Result<Option<ConfigItem>> {
         let row = query!(
             r#"
             SELECT 
@@ -161,17 +164,18 @@ impl ConfigRepository {
         .fetch_optional(&self.pool)
         .await
         .map_err(|e| Error::Database(format!("Failed to fetch config item: {}", e)))?;
-        
+
         match row {
             Some(r) => {
                 // Parse metadata
                 let metadata: HashMap<String, String> = serde_json::from_value(r.metadata)
                     .map_err(|e| Error::Internal(format!("Failed to parse metadata: {}", e)))?;
-                
+
                 // Parse value_type
-                let value_type = ConfigValueType::from_str(&r.value_type)
-                    .map_err(|_| Error::Internal(format!("Invalid value type: {}", r.value_type)))?;
-                
+                let value_type = ConfigValueType::from_str(&r.value_type).map_err(|_| {
+                    Error::Internal(format!("Invalid value type: {}", r.value_type))
+                })?;
+
                 Ok(Some(ConfigItem {
                     id: r.id,
                     key: r.key,
@@ -189,11 +193,11 @@ impl ConfigRepository {
                     tags: r.tags,
                     metadata,
                 }))
-            },
+            }
             None => Ok(None),
         }
     }
-    
+
     // Update a configuration item
     pub async fn update_config(&self, config: &ConfigItem) -> Result<()> {
         query!(
@@ -227,10 +231,10 @@ impl ConfigRepository {
         .execute(&self.pool)
         .await
         .map_err(|e| Error::Database(format!("Failed to update config item: {}", e)))?;
-        
+
         Ok(())
     }
-    
+
     // Delete a configuration item
     pub async fn delete_config(&self, id: &Uuid) -> Result<()> {
         query!(
@@ -243,10 +247,10 @@ impl ConfigRepository {
         .execute(&self.pool)
         .await
         .map_err(|e| Error::Database(format!("Failed to delete config item: {}", e)))?;
-        
+
         Ok(())
     }
-    
+
     // List configuration items with filtering and pagination
     pub async fn list_configs(
         &self,
@@ -254,7 +258,7 @@ impl ConfigRepository {
         tag: Option<&str>,
         key_contains: Option<&str>,
         page: u64,
-        per_page: u64
+        per_page: u64,
     ) -> Result<(Vec<ConfigItem>, u64)> {
         // Build query with filters
         let mut query_str = String::from(
@@ -262,33 +266,37 @@ impl ConfigRepository {
             is_secret, created_at, updated_at, created_by, updated_by,
             schema, tags, metadata
             FROM config_items
-            WHERE 1=1"
+            WHERE 1=1",
         );
-        
+
         let mut params = Vec::new();
         let mut param_idx = 1;
-        
+
         if let Some(ns) = namespace {
             query_str.push_str(&format!(" AND namespace = ${}", param_idx));
             params.push(ns);
             param_idx += 1;
         }
-        
+
         if let Some(t) = tag {
             query_str.push_str(&format!(" AND ${}::text = ANY(tags)", param_idx));
             params.push(t);
             param_idx += 1;
         }
-        
+
         if let Some(k) = key_contains {
             query_str.push_str(&format!(" AND key ILIKE ${}", param_idx));
             params.push(format!("%{}%", k));
             param_idx += 1;
         }
-        
+
         // Add order, limit and offset
-        query_str.push_str(&format!(" ORDER BY namespace, key LIMIT {} OFFSET {}", per_page, (page - 1) * per_page));
-        
+        query_str.push_str(&format!(
+            " ORDER BY namespace, key LIMIT {} OFFSET {}",
+            per_page,
+            (page - 1) * per_page
+        ));
+
         // Execute query (simplified for this example - would normally use dynamic parameters)
         let rows = query!(
             r#"
@@ -306,19 +314,19 @@ impl ConfigRepository {
         .fetch_all(&self.pool)
         .await
         .map_err(|e| Error::Database(format!("Failed to fetch config items: {}", e)))?;
-        
+
         // Parse rows into ConfigItems
         let mut configs = Vec::with_capacity(rows.len());
-        
+
         for r in rows {
             // Parse metadata
             let metadata: HashMap<String, String> = serde_json::from_value(r.metadata)
                 .map_err(|e| Error::Internal(format!("Failed to parse metadata: {}", e)))?;
-            
+
             // Parse value_type
             let value_type = ConfigValueType::from_str(&r.value_type)
                 .map_err(|_| Error::Internal(format!("Invalid value type: {}", r.value_type)))?;
-            
+
             configs.push(ConfigItem {
                 id: r.id,
                 key: r.key,
@@ -337,7 +345,7 @@ impl ConfigRepository {
                 metadata,
             });
         }
-        
+
         // Get total count
         let total: i64 = query!(
             r#"
@@ -349,10 +357,10 @@ impl ConfigRepository {
         .map_err(|e| Error::Database(format!("Failed to count config items: {}", e)))?
         .count
         .unwrap_or(0);
-        
+
         Ok((configs, total as u64))
     }
-    
+
     // Get all versions of a configuration item
     pub async fn get_config_versions(&self, config_id: &Uuid) -> Result<Vec<ConfigVersion>> {
         let rows = query!(
@@ -368,9 +376,9 @@ impl ConfigRepository {
         .fetch_all(&self.pool)
         .await
         .map_err(|e| Error::Database(format!("Failed to fetch config versions: {}", e)))?;
-        
+
         let mut versions = Vec::with_capacity(rows.len());
-        
+
         for r in rows {
             versions.push(ConfigVersion {
                 id: r.id,
@@ -382,10 +390,10 @@ impl ConfigRepository {
                 comment: r.comment,
             });
         }
-        
+
         Ok(versions)
     }
-    
+
     // Create a new namespace
     pub async fn create_namespace(&self, namespace: &ConfigNamespace) -> Result<()> {
         query!(
@@ -404,10 +412,10 @@ impl ConfigRepository {
         .execute(&self.pool)
         .await
         .map_err(|e| Error::Database(format!("Failed to create namespace: {}", e)))?;
-        
+
         Ok(())
     }
-    
+
     // Get a namespace by name
     pub async fn get_namespace(&self, name: &str) -> Result<Option<ConfigNamespace>> {
         let row = query!(
@@ -421,23 +429,25 @@ impl ConfigRepository {
         .fetch_optional(&self.pool)
         .await
         .map_err(|e| Error::Database(format!("Failed to fetch namespace: {}", e)))?;
-        
+
         match row {
-            Some(r) => {
-                Ok(Some(ConfigNamespace {
-                    id: r.id,
-                    name: r.name,
-                    description: r.description,
-                    created_at: r.created_at,
-                    updated_at: r.updated_at,
-                }))
-            },
+            Some(r) => Ok(Some(ConfigNamespace {
+                id: r.id,
+                name: r.name,
+                description: r.description,
+                created_at: r.created_at,
+                updated_at: r.updated_at,
+            })),
             None => Ok(None),
         }
     }
-    
+
     // List all namespaces with pagination
-    pub async fn list_namespaces(&self, page: u64, per_page: u64) -> Result<(Vec<ConfigNamespace>, u64)> {
+    pub async fn list_namespaces(
+        &self,
+        page: u64,
+        per_page: u64,
+    ) -> Result<(Vec<ConfigNamespace>, u64)> {
         let rows = query!(
             r#"
             SELECT id, name, description, created_at, updated_at
@@ -451,9 +461,9 @@ impl ConfigRepository {
         .fetch_all(&self.pool)
         .await
         .map_err(|e| Error::Database(format!("Failed to fetch namespaces: {}", e)))?;
-        
+
         let mut namespaces = Vec::with_capacity(rows.len());
-        
+
         for r in rows {
             namespaces.push(ConfigNamespace {
                 id: r.id,
@@ -463,7 +473,7 @@ impl ConfigRepository {
                 updated_at: r.updated_at,
             });
         }
-        
+
         // Get total count
         let total: i64 = query!(
             r#"
@@ -475,10 +485,10 @@ impl ConfigRepository {
         .map_err(|e| Error::Database(format!("Failed to count namespaces: {}", e)))?
         .count
         .unwrap_or(0);
-        
+
         Ok((namespaces, total as u64))
     }
-    
+
     // Count configurations in a namespace
     pub async fn count_configs_in_namespace(&self, namespace: &str) -> Result<i32> {
         let row = query!(
@@ -492,7 +502,7 @@ impl ConfigRepository {
         .fetch_one(&self.pool)
         .await
         .map_err(|e| Error::Database(format!("Failed to count configs in namespace: {}", e)))?;
-        
+
         Ok(row.count.unwrap_or(0) as i32)
     }
 }
@@ -500,7 +510,7 @@ impl ConfigRepository {
 // Implement FromStr for ConfigValueType
 impl FromStr for ConfigValueType {
     type Err = ();
-    
+
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s {
             "string" => Ok(ConfigValueType::String),
@@ -537,7 +547,7 @@ impl AuditRepository {
     pub fn new(pool: DbPool) -> Self {
         Self { pool }
     }
-    
+
     // Create a new audit log entry
     pub async fn create_audit_log(&self, log: &AuditLog) -> Result<()> {
         query!(
@@ -561,12 +571,17 @@ impl AuditRepository {
         .execute(&self.pool)
         .await
         .map_err(|e| Error::Database(format!("Failed to create audit log: {}", e)))?;
-        
+
         Ok(())
     }
-    
+
     // Get audit logs for an entity
-    pub async fn get_logs_for_entity(&self, entity_type: &str, entity_id: &Uuid, limit: u64) -> Result<Vec<AuditLog>> {
+    pub async fn get_logs_for_entity(
+        &self,
+        entity_type: &str,
+        entity_id: &Uuid,
+        limit: u64,
+    ) -> Result<Vec<AuditLog>> {
         let rows = query!(
             r#"
             SELECT 
@@ -584,9 +599,9 @@ impl AuditRepository {
         .fetch_all(&self.pool)
         .await
         .map_err(|e| Error::Database(format!("Failed to fetch audit logs: {}", e)))?;
-        
+
         let mut logs = Vec::with_capacity(rows.len());
-        
+
         for r in rows {
             logs.push(AuditLog {
                 id: r.id,
@@ -600,7 +615,7 @@ impl AuditRepository {
                 service: r.service,
             });
         }
-        
+
         Ok(logs)
     }
 }

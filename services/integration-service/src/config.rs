@@ -61,11 +61,11 @@ impl AppConfig {
     pub fn api_timeout(&self) -> Duration {
         Duration::from_secs(self.api.timeout_seconds)
     }
-    
+
     pub fn scheduler_interval(&self) -> Duration {
         Duration::from_secs(self.scheduler.execution_interval_seconds)
     }
-    
+
     pub fn retry_delay(&self) -> Duration {
         Duration::from_millis(self.api.retry_delay_ms)
     }
@@ -73,12 +73,12 @@ impl AppConfig {
 
 pub fn load_config() -> Result<AppConfig, ConfigError> {
     let env = env::var("RUN_ENV").unwrap_or_else(|_| "development".into());
-    
+
     let config = Config::builder()
         .add_source(File::with_name("config/integration-service/default"))
         .add_source(File::with_name(&format!("config/integration-service/{}", env)).required(false))
         .add_source(config::Environment::with_prefix("MIRAGE_INTEGRATION"))
         .build()?;
-        
+
     config.try_deserialize()
 }

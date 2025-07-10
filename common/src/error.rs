@@ -4,34 +4,34 @@ use thiserror::Error;
 pub enum Error {
     #[error("Database error: {0}")]
     Database(String),
-    
+
     #[error("Authentication error: {0}")]
     Auth(String),
-    
+
     #[error("Validation error: {0}")]
     Validation(String),
-    
+
     #[error("Configuration error: {0}")]
     Config(String),
-    
+
     #[error("Network error: {0}")]
     Network(String),
-    
+
     #[error("Serialization error: {0}")]
     Serialization(String),
-    
+
     #[error("Internal error: {0}")]
     Internal(String),
-    
+
     #[error("Not found: {0}")]
     NotFound(String),
-    
+
     #[error("Unauthorized: {0}")]
     Unauthorized(String),
-    
+
     #[error("Forbidden: {0}")]
     Forbidden(String),
-    
+
     #[error("Authorization error: {0}")]
     Authorization(String),
 
@@ -46,10 +46,10 @@ pub enum Error {
 
     #[error("Module execution error: {0}")]
     ModuleExecution(String),
-    
+
     #[error("Rate limit exceeded: {0}")]
     RateLimited(String),
-    
+
     #[error("Timeout error: {0}")]
     Timeout(String),
 }
@@ -90,6 +90,6 @@ pub fn map_status_error(status: reqwest::StatusCode, message: &str) -> Error {
         409 => Error::Conflict(message.to_string()),
         429 => Error::RateLimited(message.to_string()),
         500..=599 => Error::ExternalApi(message.to_string()),
-        _ => Error::Internal(format!("Unexpected status code: {}", status))
+        _ => Error::Internal(format!("Unexpected status code: {}", status)),
     }
 }

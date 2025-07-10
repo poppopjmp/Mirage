@@ -13,7 +13,12 @@ impl DatabaseChannel {
 }
 
 impl super::Channel for DatabaseChannel {
-    async fn send(&self, _delivery: &NotificationDelivery, _content: &str, _subject: &str) -> Result<()> {
+    async fn send(
+        &self,
+        _delivery: &NotificationDelivery,
+        _content: &str,
+        _subject: &str,
+    ) -> Result<()> {
         // The notification is already stored in the database by the notification service
         // so this channel doesn't need to do anything else
         Ok(())

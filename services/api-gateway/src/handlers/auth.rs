@@ -1,6 +1,6 @@
+use crate::AppState;
 use actix_web::{web, HttpResponse};
 use serde::{Deserialize, Serialize};
-use crate::AppState;
 
 #[derive(Debug, Deserialize)]
 pub struct LoginRequest {
@@ -17,30 +17,30 @@ pub struct TokenResponse {
     pub user_id: String,
 }
 
-pub async fn login(
-    data: web::Json<LoginRequest>,
-    state: web::Data<AppState>,
-) -> HttpResponse {
+pub async fn login(data: web::Json<LoginRequest>, state: web::Data<AppState>) -> HttpResponse {
     let client = reqwest::Client::new();
-    
+
     // Forward to auth service
     if let Some(auth_url) = state.service_endpoints.get("auth") {
-        match client.post(&format!("{}/api/v1/auth/login", auth_url))
+        match client
+            .post(&format!("{}/api/v1/auth/login", auth_url))
             .json(&data)
             .send()
-            .await {
-                Ok(response) => {
-                    if response.status().is_success() {
-                        match response.json::<TokenResponse>().await {
-                            Ok(token_data) => HttpResponse::Ok().json(token_data),
-                            Err(_) => HttpResponse::InternalServerError().body("Failed to parse auth response")
-                        }
-                    } else {
-                        HttpResponse::Unauthorized().body("Invalid credentials")
+            .await
+        {
+            Ok(response) => {
+                if response.status().is_success() {
+                    match response.json::<TokenResponse>().await {
+                        Ok(token_data) => HttpResponse::Ok().json(token_data),
+                        Err(_) => HttpResponse::InternalServerError()
+                            .body("Failed to parse auth response"),
                     }
-                },
-                Err(_) => HttpResponse::ServiceUnavailable().body("Auth service unavailable")
+                } else {
+                    HttpResponse::Unauthorized().body("Invalid credentials")
+                }
             }
+            Err(_) => HttpResponse::ServiceUnavailable().body("Auth service unavailable"),
+        }
     } else {
         HttpResponse::InternalServerError().body("Auth service not configured")
     }
@@ -58,28 +58,30 @@ pub async fn register(
     state: web::Data<AppState>,
 ) -> HttpResponse {
     let client = reqwest::Client::new();
-    
+
     // Forward to auth service
     if let Some(auth_url) = state.service_endpoints.get("auth") {
-        match client.post(&format!("{}/api/v1/auth/register", auth_url))
+        match client
+            .post(&format!("{}/api/v1/auth/register", auth_url))
             .json(&data)
             .send()
-            .await {
-                Ok(response) => {
-                    if response.status().is_success() {
-                        HttpResponse::Created().json(serde_json::json!({
-                            "status": "success",
-                            "message": "User registered successfully"
-                        }))
-                    } else {
-                        match response.text().await {
-                            Ok(error_text) => HttpResponse::BadRequest().body(error_text),
-                            Err(_) => HttpResponse::BadRequest().body("Registration failed")
-                        }
+            .await
+        {
+            Ok(response) => {
+                if response.status().is_success() {
+                    HttpResponse::Created().json(serde_json::json!({
+                        "status": "success",
+                        "message": "User registered successfully"
+                    }))
+                } else {
+                    match response.text().await {
+                        Ok(error_text) => HttpResponse::BadRequest().body(error_text),
+                        Err(_) => HttpResponse::BadRequest().body("Registration failed"),
                     }
-                },
-                Err(_) => HttpResponse::ServiceUnavailable().body("Auth service unavailable")
+                }
             }
+            Err(_) => HttpResponse::ServiceUnavailable().body("Auth service unavailable"),
+        }
     } else {
         HttpResponse::InternalServerError().body("Auth service not configured")
     }
@@ -95,25 +97,28 @@ pub async fn refresh_token(
     state: web::Data<AppState>,
 ) -> HttpResponse {
     let client = reqwest::Client::new();
-    
+
     // Forward to auth service
     if let Some(auth_url) = state.service_endpoints.get("auth") {
-        match client.post(&format!("{}/api/v1/auth/refresh", auth_url))
+        match client
+            .post(&format!("{}/api/v1/auth/refresh", auth_url))
             .json(&data)
             .send()
-            .await {
-                Ok(response) => {
-                    if response.status().is_success() {
-                        match response.json::<TokenResponse>().await {
-                            Ok(token_data) => HttpResponse::Ok().json(token_data),
-                            Err(_) => HttpResponse::InternalServerError().body("Failed to parse auth response")
-                        }
-                    } else {
-                        HttpResponse::Unauthorized().body("Invalid refresh token")
+            .await
+        {
+            Ok(response) => {
+                if response.status().is_success() {
+                    match response.json::<TokenResponse>().await {
+                        Ok(token_data) => HttpResponse::Ok().json(token_data),
+                        Err(_) => HttpResponse::InternalServerError()
+                            .body("Failed to parse auth response"),
                     }
-                },
-                Err(_) => HttpResponse::ServiceUnavailable().body("Auth service unavailable")
+                } else {
+                    HttpResponse::Unauthorized().body("Invalid refresh token")
+                }
             }
+            Err(_) => HttpResponse::ServiceUnavailable().body("Auth service unavailable"),
+        }
     } else {
         HttpResponse::InternalServerError().body("Auth service not configured")
     }

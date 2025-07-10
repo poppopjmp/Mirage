@@ -1,16 +1,13 @@
-use actix_web::{
-    web, App, HttpServer, middleware::Logger,
-    HttpResponse, Responder,
-};
+use actix_web::{middleware::Logger, web, App, HttpResponse, HttpServer, Responder};
 use tracing::info;
 
 mod config;
+mod error;
+mod handlers;
+mod health;
 mod models;
 mod repository;
 mod services;
-mod handlers;
-mod health;
-mod error;
 
 async fn health_check() -> impl Responder {
     HttpResponse::Ok().json(serde_json::json!({ "status": "ok" }))

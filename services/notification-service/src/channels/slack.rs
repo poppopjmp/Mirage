@@ -19,14 +19,20 @@ impl SlackChannel {
 }
 
 impl super::Channel for SlackChannel {
-    async fn send(&self, delivery: &NotificationDelivery, content: &str, subject: &str) -> Result<()> {
+    async fn send(
+        &self,
+        delivery: &NotificationDelivery,
+        content: &str,
+        subject: &str,
+    ) -> Result<()> {
         // Determine channel - either recipient field or default from config
-        let channel = if delivery.recipient.starts_with('#') || delivery.recipient.starts_with('@') {
+        let channel = if delivery.recipient.starts_with('#') || delivery.recipient.starts_with('@')
+        {
             delivery.recipient.clone()
         } else {
             self.config.default_channel.clone()
         };
-        
+
         // Create Slack message payload
         let payload = serde_json::json!({
             "channel": channel,
@@ -57,21 +63,29 @@ impl super::Channel for SlackChannel {
                 }
             ]
         });
-        
+
         // Send to Slack webhook
-        let response = self.client.post(&self.config.webhook_url)
+        let response = self
+            .client
+            .post(&self.config.webhook_url)
             .json(&payload)
             .send()
             .await
             .map_err(|e| Error::ExternalApi(format!("Failed to send Slack message: {}", e)))?;
-        
+
         // Check response
         if !response.status().is_success() {
             let status = response.status();
-            let error_text = response.text().await.unwrap_or_else(|_| "Unknown error".to_string());
-            return Err(Error::ExternalApi(format!("Slack API returned error ({}): {}", status, error_text)));
+            let error_text = response
+                .text()
+                .await
+                .unwrap_or_else(|_| "Unknown error".to_string());
+            return Err(Error::ExternalApi(format!(
+                "Slack API returned error ({}): {}",
+                status, error_text
+            )));
         }
-        
+
         Ok(())
     }
 }

@@ -15,7 +15,7 @@ impl WebhookChannel {
             .timeout(Duration::from_secs(config.timeout_seconds))
             .build()
             .expect("Failed to create HTTP client");
-            
+
         Self {
             config: config.clone(),
             client,
@@ -24,7 +24,12 @@ impl WebhookChannel {
 }
 
 impl super::Channel for WebhookChannel {
-    async fn send(&self, delivery: &NotificationDelivery, content: &str, subject: &str) -> Result<()> {
+    async fn send(
+        &self,
+        delivery: &NotificationDelivery,
+        content: &str,
+        subject: &str,
+    ) -> Result<()> {
         // Create payload to send
         let payload = serde_json::json!({
             "subject": subject,
@@ -33,24 +38,32 @@ impl super::Channel for WebhookChannel {
             "delivery_id": delivery.id.to_string(),
             "timestamp": chrono::Utc::now().to_rfc3339(),
         });
-        
+
         // Get webhook URL from recipient field
         let webhook_url = &delivery.recipient;
-        
+
         // Send POST request
-        let response = self.client.post(webhook_url)
+        let response = self
+            .client
+            .post(webhook_url)
             .json(&payload)
             .send()
             .await
             .map_err(|e| Error::ExternalApi(format!("Failed to send webhook request: {}", e)))?;
-            
+
         // Check response
         if !response.status().is_success() {
             let status = response.status();
-            let error_text = response.text().await.unwrap_or_else(|_| "Unknown error".to_string());
-            return Err(Error::ExternalApi(format!("Webhook returned error ({}): {}", status, error_text)));
+            let error_text = response
+                .text()
+                .await
+                .unwrap_or_else(|_| "Unknown error".to_string());
+            return Err(Error::ExternalApi(format!(
+                "Webhook returned error ({}): {}",
+                status, error_text
+            )));
         }
-        
+
         Ok(())
     }
 }
