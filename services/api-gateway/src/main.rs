@@ -1,15 +1,15 @@
-use actix_web::{web, App, HttpServer, HttpResponse, Responder, http, middleware};
 use actix_web::middleware::{Logger, NormalizePath};
-use actix_web_httpauth::middleware::HttpAuthentication;
+use actix_web::{http, middleware, web, App, HttpResponse, HttpServer, Responder};
 use actix_web_httpauth::extractors::bearer::BearerAuth;
+use actix_web_httpauth::middleware::HttpAuthentication;
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use std::env;
 use std::sync::Arc;
 use tokio::sync::Mutex;
-use std::collections::HashMap;
 
-mod config;
 mod auth;
+mod config;
 mod handlers;
 mod models;
 
@@ -34,13 +34,17 @@ struct AppState {
 }
 
 async fn health_check() -> impl Responder {
-    HttpResponse::Ok().json(serde_json::json!({ "status": "ok", "version": env!("CARGO_PKG_VERSION") }))
+    HttpResponse::Ok()
+        .json(serde_json::json!({ "status": "ok", "version": env!("CARGO_PKG_VERSION") }))
 }
 
-async fn validate_token(req: actix_web::dev::ServiceRequest, auth: BearerAuth) -> Result<actix_web::dev::ServiceRequest, actix_web::Error> {
+async fn validate_token(
+    req: actix_web::dev::ServiceRequest,
+    auth: BearerAuth,
+) -> Result<actix_web::dev::ServiceRequest, actix_web::Error> {
     let token = auth.token();
     let app_state = req.app_data::<web::Data<AppState>>().unwrap();
-    
+
     // Check cache first
     {
         let cache = app_state.auth_cache.lock().await;
@@ -53,12 +57,16 @@ async fn validate_token(req: actix_web::dev::ServiceRequest, auth: BearerAuth) -
             }
         }
     }
-    
+
     // Not in cache or expired, validate with auth service
     let secret = env::var("JWT_SECRET").expect("JWT_SECRET must be set");
     let validation = jsonwebtoken::Validation::default();
-    
-    match jsonwebtoken::decode::<Claims>(token, &jsonwebtoken::DecodingKey::from_secret(secret.as_ref()), &validation) {
+
+    match jsonwebtoken::decode::<Claims>(
+        token,
+        &jsonwebtoken::DecodingKey::from_secret(secret.as_ref()),
+        &validation,
+    ) {
         Ok(token_data) => {
             // Add to cache
             {
@@ -66,8 +74,8 @@ async fn validate_token(req: actix_web::dev::ServiceRequest, auth: BearerAuth) -
                 cache.insert(token.to_string(), token_data.claims.clone());
             }
             Ok(req)
-        },
-        Err(_) => Err(actix_web::error::ErrorUnauthorized("Invalid token"))
+        }
+        Err(_) => Err(actix_web::error::ErrorUnauthorized("Invalid token")),
     }
 }
 
@@ -78,18 +86,54 @@ async fn main() -> std::io::Result<()> {
     // Load service configuration
     let mut service_endpoints = HashMap::new();
     service_endpoints.insert("auth".to_string(), "http://auth-service:8081".to_string());
-    service_endpoints.insert("user-management".to_string(), "http://user-management-service:8082".to_string());
-    service_endpoints.insert("scan-orchestration".to_string(), "http://scan-orchestration-service:8083".to_string());
-    service_endpoints.insert("module-registry".to_string(), "http://module-registry-service:8084".to_string());
-    service_endpoints.insert("data-collection".to_string(), "http://data-collection-service:8085".to_string());
-    service_endpoints.insert("data-storage".to_string(), "http://data-storage-service:8086".to_string());
-    service_endpoints.insert("correlation-engine".to_string(), "http://correlation-engine-service:8087".to_string());
-    service_endpoints.insert("visualization".to_string(), "http://visualization-service:8088".to_string());
-    service_endpoints.insert("reporting".to_string(), "http://reporting-service:8089".to_string());
-    service_endpoints.insert("notification".to_string(), "http://notification-service:8090".to_string());
-    service_endpoints.insert("integration".to_string(), "http://integration-service:8091".to_string());
-    service_endpoints.insert("configuration".to_string(), "http://configuration-service:8092".to_string());
-    service_endpoints.insert("discovery".to_string(), "http://discovery-service:8093".to_string());
+    service_endpoints.insert(
+        "user-management".to_string(),
+        "http://user-management-service:8082".to_string(),
+    );
+    service_endpoints.insert(
+        "scan-orchestration".to_string(),
+        "http://scan-orchestration-service:8083".to_string(),
+    );
+    service_endpoints.insert(
+        "module-registry".to_string(),
+        "http://module-registry-service:8084".to_string(),
+    );
+    service_endpoints.insert(
+        "data-collection".to_string(),
+        "http://data-collection-service:8085".to_string(),
+    );
+    service_endpoints.insert(
+        "data-storage".to_string(),
+        "http://data-storage-service:8086".to_string(),
+    );
+    service_endpoints.insert(
+        "correlation-engine".to_string(),
+        "http://correlation-engine-service:8087".to_string(),
+    );
+    service_endpoints.insert(
+        "visualization".to_string(),
+        "http://visualization-service:8088".to_string(),
+    );
+    service_endpoints.insert(
+        "reporting".to_string(),
+        "http://reporting-service:8089".to_string(),
+    );
+    service_endpoints.insert(
+        "notification".to_string(),
+        "http://notification-service:8090".to_string(),
+    );
+    service_endpoints.insert(
+        "integration".to_string(),
+        "http://integration-service:8091".to_string(),
+    );
+    service_endpoints.insert(
+        "configuration".to_string(),
+        "http://configuration-service:8092".to_string(),
+    );
+    service_endpoints.insert(
+        "discovery".to_string(),
+        "http://discovery-service:8093".to_string(),
+    );
 
     let app_state = web::Data::new(AppState {
         service_endpoints,
@@ -111,8 +155,8 @@ async fn main() -> std::io::Result<()> {
                         web::scope("/auth")
                             .route("/login", web::post().to(handlers::auth::login))
                             .route("/register", web::post().to(handlers::auth::register))
-                            .route("/refresh", web::post().to(handlers::auth::refresh_token))
-                    )
+                            .route("/refresh", web::post().to(handlers::auth::refresh_token)),
+                    ),
             )
             // Protected routes
             .service(
@@ -124,7 +168,7 @@ async fn main() -> std::io::Result<()> {
                             .route("/{id}", web::get().to(handlers::proxy::proxy_request))
                             .route("", web::post().to(handlers::proxy::proxy_request))
                             .route("/{id}", web::put().to(handlers::proxy::proxy_request))
-                            .route("/{id}", web::delete().to(handlers::proxy::proxy_request))
+                            .route("/{id}", web::delete().to(handlers::proxy::proxy_request)),
                     )
                     .service(
                         web::scope("/scans")
@@ -132,9 +176,8 @@ async fn main() -> std::io::Result<()> {
                             .route("/{id}", web::get().to(handlers::proxy::proxy_request))
                             .route("", web::post().to(handlers::proxy::proxy_request))
                             .route("/{id}", web::put().to(handlers::proxy::proxy_request))
-                            .route("/{id}", web::delete().to(handlers::proxy::proxy_request))
-                    )
-                    // Add more service routes as needed
+                            .route("/{id}", web::delete().to(handlers::proxy::proxy_request)),
+                    ), // Add more service routes as needed
             )
     })
     .bind("0.0.0.0:8080")?

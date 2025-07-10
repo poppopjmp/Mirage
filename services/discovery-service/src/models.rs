@@ -36,7 +36,7 @@ impl ServiceInstance {
     ) -> Self {
         let now = Utc::now();
         let id = format!("{}-{}-{}", name, address, port);
-        
+
         Self {
             id,
             name: name.to_string(),
@@ -49,15 +49,15 @@ impl ServiceInstance {
             last_heartbeat: now,
         }
     }
-    
+
     pub fn get_url(&self) -> String {
         format!("http://{}:{}", self.address, self.port)
     }
-    
+
     pub fn get_health_url(&self) -> Option<String> {
-        self.health_check_url.clone().or_else(|| {
-            Some(format!("{}/health", self.get_url()))
-        })
+        self.health_check_url
+            .clone()
+            .or_else(|| Some(format!("{}/health", self.get_url())))
     }
 }
 

@@ -1,20 +1,20 @@
-use thiserror::Error;
 use std::fmt;
+use thiserror::Error;
 
 #[derive(Error, Debug)]
 pub enum VisualizationError {
     #[error("Not found: {0}")]
     NotFound(String),
-    
+
     #[error("Invalid request: {0}")]
     InvalidRequest(String),
-    
+
     #[error("Rendering error: {0}")]
     RenderingError(String),
-    
+
     #[error("Data source error: {0}")]
     DataSourceError(String),
-    
+
     #[error("Internal error: {0}")]
     Internal(String),
 }

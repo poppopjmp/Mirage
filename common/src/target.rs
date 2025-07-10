@@ -1,29 +1,27 @@
 //! Functionality for handling various target types in the OSINT platform
 
-use crate::{Error, Result};
 use crate::models::TargetType;
-use serde::{Serialize, Deserialize};
-use std::str::FromStr;
-use regex::Regex;
+use crate::{Error, Result};
 use once_cell::sync::Lazy;
-use uuid::Uuid;
+use regex::Regex;
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::str::FromStr;
+use uuid::Uuid;
 
 static DOMAIN_REGEX: Lazy<Regex> = Lazy::new(|| {
     Regex::new(r"^([a-zA-Z0-9]([a-zA-Z0-9\-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z]{2,}$").unwrap()
 });
 
-static EMAIL_REGEX: Lazy<Regex> = Lazy::new(|| {
-    Regex::new(r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$").unwrap()
-});
+static EMAIL_REGEX: Lazy<Regex> =
+    Lazy::new(|| Regex::new(r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$").unwrap());
 
 static IPV4_REGEX: Lazy<Regex> = Lazy::new(|| {
     Regex::new(r"^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$").unwrap()
 });
 
-static URL_REGEX: Lazy<Regex> = Lazy::new(|| {
-    Regex::new(r"^(https?|ftp)://[^\s/$.?#].[^\s]*$").unwrap()
-});
+static URL_REGEX: Lazy<Regex> =
+    Lazy::new(|| Regex::new(r"^(https?|ftp)://[^\s/$.?#].[^\s]*$").unwrap());
 
 /// A lightweight representation of a target for parsing and validation
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -46,22 +44,25 @@ impl TargetInput {
                     if !DOMAIN_REGEX.is_match(&self.value) {
                         return Err(Error::Validation(format!("Invalid domain: {}", self.value)));
                     }
-                },
+                }
                 TargetType::IpAddress => {
                     if !IPV4_REGEX.is_match(&self.value) {
-                        return Err(Error::Validation(format!("Invalid IP address: {}", self.value)));
+                        return Err(Error::Validation(format!(
+                            "Invalid IP address: {}",
+                            self.value
+                        )));
                     }
-                },
+                }
                 TargetType::Email => {
                     if !EMAIL_REGEX.is_match(&self.value) {
                         return Err(Error::Validation(format!("Invalid email: {}", self.value)));
                     }
-                },
+                }
                 TargetType::Url => {
                     if !URL_REGEX.is_match(&self.value) {
                         return Err(Error::Validation(format!("Invalid URL: {}", self.value)));
                     }
-                },
+                }
                 _ => (), // Other types don't have specific validation
             }
             Ok(target_type.clone())
@@ -77,20 +78,23 @@ pub fn infer_target_type(value: &str) -> Result<TargetType> {
     if DOMAIN_REGEX.is_match(value) {
         return Ok(TargetType::Domain);
     }
-    
+
     if EMAIL_REGEX.is_match(value) {
         return Ok(TargetType::Email);
     }
-    
+
     if IPV4_REGEX.is_match(value) {
         return Ok(TargetType::IpAddress);
     }
-    
+
     if URL_REGEX.is_match(value) {
         return Ok(TargetType::Url);
     }
-    
-    Err(Error::Validation(format!("Could not infer target type for: {}", value)))
+
+    Err(Error::Validation(format!(
+        "Could not infer target type for: {}",
+        value
+    )))
 }
 
 /// Parse a string representation of target type
@@ -131,12 +135,12 @@ impl Target {
             tags: Vec::new(),
         }
     }
-    
+
     pub fn add_metadata(&mut self, key: &str, value: &str) -> &mut Self {
         self.metadata.insert(key.to_string(), value.to_string());
         self
     }
-    
+
     pub fn add_tag(&mut self, tag: &str) -> &mut Self {
         self.tags.push(tag.to_string());
         self

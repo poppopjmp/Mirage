@@ -1,5 +1,5 @@
 use crate::config::DatabaseConfig;
-use crate::models::{TeamModel, UserModel, RoleModel, TeamMemberModel};
+use crate::models::{RoleModel, TeamMemberModel, TeamModel, UserModel};
 use mirage_common::{Error, Result};
 use sqlx::{postgres::PgPoolOptions, Pool, Postgres};
 use uuid::Uuid;
@@ -261,7 +261,7 @@ impl TeamRepository {
 
         Ok(result.rows_affected() > 0)
     }
-    
+
     pub async fn add_member(&self, member: &TeamMemberModel) -> Result<()> {
         sqlx::query!(
             r#"

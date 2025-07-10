@@ -1,10 +1,10 @@
-use actix_web::{web, HttpResponse, Responder, Error, post, get, put, delete};
+use actix_web::{delete, get, post, put, web, Error, HttpResponse, Responder};
 use mirage_common::Error as CommonError;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
+use crate::models::{QueryParams, StoreDataRequest, StoreRelationshipRequest};
 use crate::services::StorageService;
-use crate::models::{StoreDataRequest, QueryParams, StoreRelationshipRequest};
 
 pub fn storage_routes() -> actix_web::Scope {
     web::scope("/data")
@@ -22,7 +22,9 @@ async fn store_data(
     data: web::Json<StoreDataRequest>,
     storage_service: web::Data<StorageService>,
 ) -> Result<HttpResponse, Error> {
-    let data_id = storage_service.store_data(data.into_inner()).await
+    let data_id = storage_service
+        .store_data(data.into_inner())
+        .await
         .map_err(|e| {
             tracing::error!("Failed to store data: {}", e);
             match e {
@@ -30,7 +32,7 @@ async fn store_data(
                 _ => actix_web::error::ErrorInternalServerError(e),
             }
         })?;
-        
+
     Ok(HttpResponse::Created().json(serde_json::json!({ "data_id": data_id })))
 }
 
@@ -39,21 +41,17 @@ async fn get_data(
     id: web::Path<String>,
     storage_service: web::Data<StorageService>,
 ) -> Result<HttpResponse, Error> {
-    let id = Uuid::parse_str(&id).map_err(|_| {
-        actix_web::error::ErrorBadRequest("Invalid data ID")
+    let id =
+        Uuid::parse_str(&id).map_err(|_| actix_web::error::ErrorBadRequest("Invalid data ID"))?;
+
+    let data = storage_service.get_data(&id).await.map_err(|e| match e {
+        CommonError::NotFound(_) => actix_web::error::ErrorNotFound(e),
+        _ => {
+            tracing::error!("Failed to get data: {}", e);
+            actix_web::error::ErrorInternalServerError(e)
+        }
     })?;
-    
-    let data = storage_service.get_data(&id).await
-        .map_err(|e| {
-            match e {
-                CommonError::NotFound(_) => actix_web::error::ErrorNotFound(e),
-                _ => {
-                    tracing::error!("Failed to get data: {}", e);
-                    actix_web::error::ErrorInternalServerError(e)
-                }
-            }
-        })?;
-        
+
     Ok(HttpResponse::Ok().json(data))
 }
 
@@ -63,22 +61,21 @@ async fn update_data(
     data: web::Json<serde_json::Value>,
     storage_service: web::Data<StorageService>,
 ) -> Result<HttpResponse, Error> {
-    let id = Uuid::parse_str(&id).map_err(|_| {
-        actix_web::error::ErrorBadRequest("Invalid data ID")
-    })?;
-    
-    storage_service.update_data(&id, data.into_inner()).await
-        .map_err(|e| {
-            match e {
-                CommonError::NotFound(_) => actix_web::error::ErrorNotFound(e),
-                CommonError::Validation(_) => actix_web::error::ErrorBadRequest(e),
-                _ => {
-                    tracing::error!("Failed to update data: {}", e);
-                    actix_web::error::ErrorInternalServerError(e)
-                }
+    let id =
+        Uuid::parse_str(&id).map_err(|_| actix_web::error::ErrorBadRequest("Invalid data ID"))?;
+
+    storage_service
+        .update_data(&id, data.into_inner())
+        .await
+        .map_err(|e| match e {
+            CommonError::NotFound(_) => actix_web::error::ErrorNotFound(e),
+            CommonError::Validation(_) => actix_web::error::ErrorBadRequest(e),
+            _ => {
+                tracing::error!("Failed to update data: {}", e);
+                actix_web::error::ErrorInternalServerError(e)
             }
         })?;
-        
+
     Ok(HttpResponse::NoContent().finish())
 }
 
@@ -87,21 +84,20 @@ async fn delete_data(
     id: web::Path<String>,
     storage_service: web::Data<StorageService>,
 ) -> Result<HttpResponse, Error> {
-    let id = Uuid::parse_str(&id).map_err(|_| {
-        actix_web::error::ErrorBadRequest("Invalid data ID")
-    })?;
-    
-    storage_service.delete_data(&id).await
-        .map_err(|e| {
-            match e {
-                CommonError::NotFound(_) => actix_web::error::ErrorNotFound(e),
-                _ => {
-                    tracing::error!("Failed to delete data: {}", e);
-                    actix_web::error::ErrorInternalServerError(e)
-                }
+    let id =
+        Uuid::parse_str(&id).map_err(|_| actix_web::error::ErrorBadRequest("Invalid data ID"))?;
+
+    storage_service
+        .delete_data(&id)
+        .await
+        .map_err(|e| match e {
+            CommonError::NotFound(_) => actix_web::error::ErrorNotFound(e),
+            _ => {
+                tracing::error!("Failed to delete data: {}", e);
+                actix_web::error::ErrorInternalServerError(e)
             }
         })?;
-        
+
     Ok(HttpResponse::NoContent().finish())
 }
 
@@ -110,12 +106,14 @@ async fn query_data(
     query: web::Query<QueryParams>,
     storage_service: web::Data<StorageService>,
 ) -> Result<HttpResponse, Error> {
-    let data = storage_service.query_data(query.into_inner()).await
+    let data = storage_service
+        .query_data(query.into_inner())
+        .await
         .map_err(|e| {
             tracing::error!("Failed to query data: {}", e);
             actix_web::error::ErrorInternalServerError(e)
         })?;
-        
+
     Ok(HttpResponse::Ok().json(data))
 }
 
@@ -124,7 +122,9 @@ async fn create_relationship(
     data: web::Json<StoreRelationshipRequest>,
     storage_service: web::Data<StorageService>,
 ) -> Result<HttpResponse, Error> {
-    let relationship_id = storage_service.create_relationship(data.into_inner()).await
+    let relationship_id = storage_service
+        .create_relationship(data.into_inner())
+        .await
         .map_err(|e| {
             tracing::error!("Failed to create relationship: {}", e);
             match e {
@@ -132,7 +132,7 @@ async fn create_relationship(
                 _ => actix_web::error::ErrorInternalServerError(e),
             }
         })?;
-        
+
     Ok(HttpResponse::Created().json(serde_json::json!({ "relationship_id": relationship_id })))
 }
 
@@ -141,15 +141,16 @@ async fn get_relationships(
     id: web::Path<String>,
     storage_service: web::Data<StorageService>,
 ) -> Result<HttpResponse, Error> {
-    let id = Uuid::parse_str(&id).map_err(|_| {
-        actix_web::error::ErrorBadRequest("Invalid entity ID")
-    })?;
-    
-    let relationships = storage_service.get_relationships_for_entity(&id).await
+    let id =
+        Uuid::parse_str(&id).map_err(|_| actix_web::error::ErrorBadRequest("Invalid entity ID"))?;
+
+    let relationships = storage_service
+        .get_relationships_for_entity(&id)
+        .await
         .map_err(|e| {
             tracing::error!("Failed to get relationships: {}", e);
             actix_web::error::ErrorInternalServerError(e)
         })?;
-        
+
     Ok(HttpResponse::Ok().json(relationships))
 }

@@ -1,16 +1,16 @@
 use crate::config::AppConfig;
 use crate::models::{
-    CollectionTask, TaskStatus, TaskType, CollectionTarget, TaskResult,
-    CreateTaskRequest, BatchTaskRequest, TaskResponse, BatchTaskResponse
+    BatchTaskRequest, BatchTaskResponse, CollectionTarget, CollectionTask, CreateTaskRequest,
+    TaskResponse, TaskResult, TaskStatus, TaskType,
 };
-use crate::repositories::{TaskRepository, ResultRepository};
 use crate::queue::TaskQueue;
+use crate::repositories::{ResultRepository, TaskRepository};
+use chrono::Utc;
 use mirage_common::{Error, Result};
 use reqwest::Client;
-use std::sync::Arc;
 use std::collections::HashMap;
+use std::sync::Arc;
 use uuid::Uuid;
-use chrono::Utc;
 
 #[derive(Clone)]
 pub struct CollectionService {
@@ -37,12 +37,12 @@ impl CollectionService {
             config: Arc::new(config),
         }
     }
-    
+
     // Create a new collection task
     pub async fn create_task(&self, request: CreateTaskRequest) -> Result<TaskResponse> {
         // Generate a UUID for the task
         let task_id = Uuid::new_v4();
-        
+
         // Create the target object
         let target = CollectionTarget {
             id: Uuid::new_v4(),
@@ -51,14 +51,14 @@ impl CollectionService {
             metadata: request.target.metadata.unwrap_or_default(),
             entity_id: request.target.entity_id,
         };
-        
+
         // Get module info from module registry
         let module_info = self.get_module_info(&request.module_id).await?;
-        
+
         // Default values
         let priority = request.priority.unwrap_or(5); // 1-10, lower = higher priority
         let task_type = request.task_type.unwrap_or(TaskType::SingleTarget);
-        
+
         // Create the task
         let task = CollectionTask {
             id: task_id,
@@ -80,13 +80,13 @@ impl CollectionService {
             result_summary: None,
             max_duration_seconds: request.max_duration_seconds,
         };
-        
+
         // Save task to database
         self.task_repo.create_task(&task).await?;
-        
+
         // Add task to queue
         self.task_queue.enqueue_task(task_id, priority).await?;
-        
+
         // Return response
         Ok(TaskResponse {
             id: task_id,
@@ -98,15 +98,17 @@ impl CollectionService {
             module_name: task.module_name,
         })
     }
-    
+
     // Create multiple collection tasks
     pub async fn create_batch_tasks(&self, request: BatchTaskRequest) -> Result<BatchTaskResponse> {
         if request.targets.is_empty() {
-            return Err(Error::Validation("At least one target must be provided".into()));
+            return Err(Error::Validation(
+                "At least one target must be provided".into(),
+            ));
         }
-        
+
         let mut responses = Vec::with_capacity(request.targets.len());
-        
+
         for target in request.targets {
             let task_request = CreateTaskRequest {
                 target,
@@ -117,7 +119,7 @@ impl CollectionService {
                 task_type: Some(TaskType::BatchTarget),
                 max_duration_seconds: request.max_duration_seconds,
             };
-            
+
             match self.create_task(task_request).await {
                 Ok(response) => responses.push(response),
                 Err(e) => {
@@ -126,19 +128,22 @@ impl CollectionService {
                 }
             }
         }
-        
+
         Ok(BatchTaskResponse {
             tasks: responses.clone(),
             total_tasks: responses.len(),
         })
     }
-    
+
     // Get task by ID
     pub async fn get_task(&self, task_id: Uuid) -> Result<TaskResponse> {
         // Find task in database
-        let task = self.task_repo.get_task_by_id(&task_id).await?
+        let task = self
+            .task_repo
+            .get_task_by_id(&task_id)
+            .await?
             .ok_or_else(|| Error::NotFound(format!("Task with ID {} not found", task_id)))?;
-            
+
         // Convert to response
         Ok(TaskResponse {
             id: task.id,
@@ -150,25 +155,28 @@ impl CollectionService {
             module_name: task.module_name,
         })
     }
-    
+
     // Get task result
     pub async fn get_task_result(&self, task_id: Uuid) -> Result<Option<TaskResult>> {
         self.result_repo.get_result_by_task_id(&task_id).await
     }
-    
+
     // Cancel a task
     pub async fn cancel_task(&self, task_id: Uuid) -> Result<TaskResponse> {
         // Check if task exists and is in a state that can be cancelled
-        let task = self.task_repo.get_task_by_id(&task_id).await?
+        let task = self
+            .task_repo
+            .get_task_by_id(&task_id)
+            .await?
             .ok_or_else(|| Error::NotFound(format!("Task with ID {} not found", task_id)))?;
-            
+
         if task.status != TaskStatus::Pending && task.status != TaskStatus::Running {
             return Err(Error::Validation(format!(
-                "Task cannot be cancelled in state {}", 
+                "Task cannot be cancelled in state {}",
                 serde_json::to_string(&task.status).unwrap()
             )));
         }
-        
+
         // If it's in the queue, try to remove it
         if task.status == TaskStatus::Pending {
             if let Ok(removed) = self.task_queue.remove_task(task_id).await {
@@ -177,24 +185,26 @@ impl CollectionService {
                 }
             }
         }
-        
+
         // Update status in database
-        self.task_repo.update_task_status(
-            &task_id,
-            TaskStatus::Cancelled,
-            None,
-            None,
-            Some("Task cancelled by user".to_string()),
-            None
-        ).await?;
-        
+        self.task_repo
+            .update_task_status(
+                &task_id,
+                TaskStatus::Cancelled,
+                None,
+                None,
+                Some("Task cancelled by user".to_string()),
+                None,
+            )
+            .await?;
+
         // Return updated task
         self.get_task(task_id).await
     }
-    
+
     // List tasks with filtering
     pub async fn list_tasks(
-        &self, 
+        &self,
         status: Option<TaskStatus>,
         module_id: Option<Uuid>,
         scan_id: Option<Uuid>,
@@ -202,18 +212,22 @@ impl CollectionService {
         page: u64,
         per_page: u64,
     ) -> Result<(Vec<TaskResponse>, u64)> {
-        let (tasks, total) = self.task_repo.list_tasks(
-            status,
-            module_id,
-            scan_id,
-            None, // created_by - not implementing user context here
-            target_type,
-            page,
-            per_page
-        ).await?;
-        
+        let (tasks, total) = self
+            .task_repo
+            .list_tasks(
+                status,
+                module_id,
+                scan_id,
+                None, // created_by - not implementing user context here
+                target_type,
+                page,
+                per_page,
+            )
+            .await?;
+
         // Convert to responses
-        let responses = tasks.into_iter()
+        let responses = tasks
+            .into_iter()
             .map(|task| TaskResponse {
                 id: task.id,
                 status: task.status,
@@ -224,44 +238,58 @@ impl CollectionService {
                 module_name: task.module_name,
             })
             .collect();
-            
+
         Ok((responses, total))
     }
-    
+
     // Helper methods
-    
+
     // Get module information from Module Registry
     async fn get_module_info(&self, module_id: &Uuid) -> Result<ModuleInfo> {
         let url = format!(
-            "{}/api/v1/modules/{}", 
-            self.config.module_registry.url,
-            module_id
+            "{}/api/v1/modules/{}",
+            self.config.module_registry.url, module_id
         );
-        
-        let response = self.http_client.get(&url)
+
+        let response = self
+            .http_client
+            .get(&url)
             .send()
             .await
             .map_err(|e| Error::ExternalApi(format!("Failed to fetch module info: {}", e)))?;
-            
+
         if !response.status().is_success() {
             let status = response.status();
             let error_text = response.text().await.unwrap_or_default();
-            
+
             if status.as_u16() == 404 {
-                return Err(Error::NotFound(format!("Module with ID {} not found", module_id)));
+                return Err(Error::NotFound(format!(
+                    "Module with ID {} not found",
+                    module_id
+                )));
             } else {
-                return Err(Error::ExternalApi(format!("Module registry error: {} - {}", status, error_text)));
+                return Err(Error::ExternalApi(format!(
+                    "Module registry error: {} - {}",
+                    status, error_text
+                )));
             }
         }
-        
-        let module_data: serde_json::Value = response.json()
+
+        let module_data: serde_json::Value = response
+            .json()
             .await
             .map_err(|e| Error::ExternalApi(format!("Failed to parse module data: {}", e)))?;
-            
+
         Ok(ModuleInfo {
             id: *module_id,
-            name: module_data["name"].as_str().unwrap_or("Unknown").to_string(),
-            version: module_data["version"].as_str().unwrap_or("0.0.0").to_string(),
+            name: module_data["name"]
+                .as_str()
+                .unwrap_or("Unknown")
+                .to_string(),
+            version: module_data["version"]
+                .as_str()
+                .unwrap_or("0.0.0")
+                .to_string(),
         })
     }
 }

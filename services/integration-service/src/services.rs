@@ -1,22 +1,21 @@
-use crate::models::{
-    Integration, IntegrationType, IntegrationStatus, ScheduleType,
-    Credential, ExecutionRecord, ExecutionStatus, AuthType,
-    CreateIntegrationRequest, UpdateIntegrationRequest, IntegrationResponse,
-    CredentialRequest, CredentialResponse, ExecutionRequest, ExecutionResponse,
-    PaginatedResponse, ProviderInfo
-};
-use crate::repositories::{IntegrationRepository, CredentialRepository, ExecutionRepository};
-use crate::providers::{ProviderRegistry, Provider};
 use crate::config::AppConfig;
 use crate::error::{IntegrationError, IntegrationResult};
-use chrono::{DateTime, Utc, Duration};
-use reqwest::Client;
-use uuid::Uuid;
-use std::collections::HashMap;
-use std::sync::Arc;
+use crate::models::{
+    AuthType, CreateIntegrationRequest, Credential, CredentialRequest, CredentialResponse,
+    ExecutionRecord, ExecutionRequest, ExecutionResponse, ExecutionStatus, Integration,
+    IntegrationResponse, IntegrationStatus, IntegrationType, PaginatedResponse, ProviderInfo,
+    ScheduleType, UpdateIntegrationRequest,
+};
+use crate::providers::{Provider, ProviderRegistry};
+use crate::repositories::{CredentialRepository, ExecutionRepository, IntegrationRepository};
+use chrono::{DateTime, Duration, Utc};
 use cron::Schedule;
+use reqwest::Client;
+use std::collections::HashMap;
 use std::str::FromStr;
-use tracing::{info, warn, error};
+use std::sync::Arc;
+use tracing::{error, info, warn};
+use uuid::Uuid;
 
 #[derive(Clone)]
 pub struct IntegrationService {
@@ -43,74 +42,91 @@ impl IntegrationService {
             config: Arc::new(config),
         }
     }
-    
+
     // Create a new integration
     pub async fn create_integration(
-        &self, 
-        request: CreateIntegrationRequest, 
-        user_id: Option<String>
+        &self,
+        request: CreateIntegrationRequest,
+        user_id: Option<String>,
     ) -> IntegrationResult<IntegrationResponse> {
         // Get the provider to validate configuration
-        let provider = self.provider_registry.get_provider(&request.provider_id)
-            .ok_or_else(|| IntegrationError::NotFound(format!(
-                "Provider '{}' not found", request.provider_id
-            )))?;
-        
+        let provider = self
+            .provider_registry
+            .get_provider(&request.provider_id)
+            .ok_or_else(|| {
+                IntegrationError::NotFound(format!("Provider '{}' not found", request.provider_id))
+            })?;
+
         // Validate configuration against provider schema
         provider.validate_config(&request.config)?;
-        
+
         // Calculate next execution time if scheduled
         let next_execution = match request.schedule_type {
             ScheduleType::None => None,
             ScheduleType::Once => {
                 // For one-time scheduled tasks, expect a timestamp in schedule_config
-                let schedule_config = request.schedule_config.as_ref()
-                    .ok_or_else(|| IntegrationError::Validation("Schedule configuration required for 'once' schedule type".into()))?;
-                
+                let schedule_config = request.schedule_config.as_ref().ok_or_else(|| {
+                    IntegrationError::Validation(
+                        "Schedule configuration required for 'once' schedule type".into(),
+                    )
+                })?;
+
                 let timestamp = schedule_config.get("timestamp")
                     .and_then(|v| v.as_i64())
                     .ok_or_else(|| IntegrationError::Validation("'timestamp' field required in schedule_config for 'once' schedule type".into()))?;
-                
-                Some(DateTime::<Utc>::from_timestamp(timestamp, 0)
-                    .ok_or_else(|| IntegrationError::Validation("Invalid timestamp value".into()))?)
-            },
+
+                Some(
+                    DateTime::<Utc>::from_timestamp(timestamp, 0).ok_or_else(|| {
+                        IntegrationError::Validation("Invalid timestamp value".into())
+                    })?,
+                )
+            }
             ScheduleType::Interval => {
                 // For interval schedules, expect interval_seconds in config
-                let schedule_config = request.schedule_config.as_ref()
-                    .ok_or_else(|| IntegrationError::Validation("Schedule configuration required for 'interval' schedule type".into()))?;
-                
+                let schedule_config = request.schedule_config.as_ref().ok_or_else(|| {
+                    IntegrationError::Validation(
+                        "Schedule configuration required for 'interval' schedule type".into(),
+                    )
+                })?;
+
                 let interval_seconds = schedule_config.get("interval_seconds")
                     .and_then(|v| v.as_i64())
                     .ok_or_else(|| IntegrationError::Validation("'interval_seconds' field required in schedule_config for 'interval' schedule type".into()))?;
-                
+
                 if interval_seconds < 60 {
-                    return Err(IntegrationError::Validation("interval_seconds must be at least 60 seconds".into()));
+                    return Err(IntegrationError::Validation(
+                        "interval_seconds must be at least 60 seconds".into(),
+                    ));
                 }
-                
+
                 // First execution is now + interval
                 Some(Utc::now() + Duration::seconds(interval_seconds))
-            },
+            }
             ScheduleType::Cron => {
                 // For cron schedules, expect a cron expression
-                let schedule_config = request.schedule_config.as_ref()
-                    .ok_or_else(|| IntegrationError::Validation("Schedule configuration required for 'cron' schedule type".into()))?;
-                
+                let schedule_config = request.schedule_config.as_ref().ok_or_else(|| {
+                    IntegrationError::Validation(
+                        "Schedule configuration required for 'cron' schedule type".into(),
+                    )
+                })?;
+
                 let cron_expr = schedule_config.get("cron_expression")
                     .and_then(|v| v.as_str())
                     .ok_or_else(|| IntegrationError::Validation("'cron_expression' field required in schedule_config for 'cron' schedule type".into()))?;
-                
+
                 // Parse cron expression and get next occurrence
-                let schedule = Schedule::from_str(cron_expr)
-                    .map_err(|e| IntegrationError::Validation(format!("Invalid cron expression: {}", e)))?;
-                
+                let schedule = Schedule::from_str(cron_expr).map_err(|e| {
+                    IntegrationError::Validation(format!("Invalid cron expression: {}", e))
+                })?;
+
                 schedule.upcoming(Utc).next()
             }
         };
-        
+
         // Create integration object
         let now = Utc::now();
         let id = Uuid::new_v4();
-        
+
         let integration = Integration {
             id,
             name: request.name,
@@ -130,10 +146,12 @@ impl IntegrationService {
             error_message: None,
             metadata: request.metadata.unwrap_or_default(),
         };
-        
+
         // Save to database
-        self.integration_repo.create_integration(&integration).await?;
-        
+        self.integration_repo
+            .create_integration(&integration)
+            .await?;
+
         // Convert to response
         let response = IntegrationResponse {
             id: integration.id,
@@ -153,21 +171,27 @@ impl IntegrationService {
             metadata: integration.metadata,
             has_credentials: false, // No credentials yet
         };
-        
+
         Ok(response)
     }
-    
+
     // Get integration by ID
     pub async fn get_integration(&self, id: Uuid) -> IntegrationResult<IntegrationResponse> {
-        let integration = self.integration_repo.get_integration_by_id(&id).await?
-            .ok_or_else(|| IntegrationError::NotFound(format!(
-                "Integration with ID {} not found", id
-            )))?;
-        
+        let integration = self
+            .integration_repo
+            .get_integration_by_id(&id)
+            .await?
+            .ok_or_else(|| {
+                IntegrationError::NotFound(format!("Integration with ID {} not found", id))
+            })?;
+
         // Check if integration has credentials
-        let credentials = self.credential_repo.get_credentials_for_integration(&id).await?;
+        let credentials = self
+            .credential_repo
+            .get_credentials_for_integration(&id)
+            .await?;
         let has_credentials = !credentials.is_empty();
-        
+
         // Convert to response
         let response = IntegrationResponse {
             id: integration.id,
@@ -187,63 +211,71 @@ impl IntegrationService {
             metadata: integration.metadata,
             has_credentials,
         };
-        
+
         Ok(response)
     }
-    
+
     // Update integration
     pub async fn update_integration(
-        &self, 
-        id: Uuid, 
-        request: UpdateIntegrationRequest
+        &self,
+        id: Uuid,
+        request: UpdateIntegrationRequest,
     ) -> IntegrationResult<IntegrationResponse> {
         // Get existing integration
-        let mut integration = self.integration_repo.get_integration_by_id(&id).await?
-            .ok_or_else(|| IntegrationError::NotFound(format!(
-                "Integration with ID {} not found", id
-            )))?;
-        
+        let mut integration = self
+            .integration_repo
+            .get_integration_by_id(&id)
+            .await?
+            .ok_or_else(|| {
+                IntegrationError::NotFound(format!("Integration with ID {} not found", id))
+            })?;
+
         // Get provider to validate updated config if needed
         if let Some(ref new_config) = request.config {
-            let provider = self.provider_registry.get_provider(&integration.provider_id)
-                .ok_or_else(|| IntegrationError::NotFound(format!(
-                    "Provider '{}' not found", integration.provider_id
-                )))?;
-            
+            let provider = self
+                .provider_registry
+                .get_provider(&integration.provider_id)
+                .ok_or_else(|| {
+                    IntegrationError::NotFound(format!(
+                        "Provider '{}' not found",
+                        integration.provider_id
+                    ))
+                })?;
+
             // Validate updated configuration
             provider.validate_config(new_config)?;
-            
+
             integration.config = new_config.clone();
         }
-        
+
         // Update fields from request
         if let Some(name) = request.name {
             integration.name = name;
         }
-        
+
         if let Some(description) = request.description {
             integration.description = description;
         }
-        
+
         if let Some(status) = request.status {
             integration.status = status;
         }
-        
+
         if let Some(tags) = request.tags {
             integration.tags = tags;
         }
-        
+
         // Handle schedule updates
         let schedule_changed = request.schedule_type.is_some() || request.schedule_config.is_some();
-        
+
         if let Some(schedule_type) = request.schedule_type {
             integration.schedule_type = schedule_type;
         }
-        
+
         if let Some(schedule_config) = request.schedule_config {
             integration.schedule_config = Some(schedule_config);
         }
-        
+
         // Recalculate next_execution if schedule changed
         if schedule_changed {
             // Just use the scheduler's calculate_next_execution here
@@ -254,19 +286,22 @@ impl IntegrationService {
                     // For one-time schedules, check if there's a timestamp in schedule_config
                     if let Some(ref config) = integration.schedule_config {
                         if let Some(timestamp) = config.get("timestamp").and_then(|v| v.as_i64()) {
-                            Some(DateTime::<Utc>::from_timestamp(timestamp, 0)
-                                .ok_or_else(|| IntegrationError::Validation("Invalid timestamp value".into()))?)
+                            Some(DateTime::<Utc>::from_timestamp(timestamp, 0).ok_or_else(
+                                || IntegrationError::Validation("Invalid timestamp value".into()),
+                            )?)
                         } else {
                             None
                         }
                     } else {
                         None
                     }
-                },
+                }
                 ScheduleType::Interval => {
                     // For interval schedules, add interval to current time
                     if let Some(ref config) = integration.schedule_config {
-                        if let Some(seconds) = config.get("interval_seconds").and_then(|v| v.as_i64()) {
+                        if let Some(seconds) =
+                            config.get("interval_seconds").and_then(|v| v.as_i64())
+                        {
                             Some(Utc::now() + Duration::seconds(seconds))
                         } else {
                             None
@@ -274,14 +309,18 @@ impl IntegrationService {
                     } else {
                         None
                     }
-                },
+                }
                 ScheduleType::Cron => {
                     // For cron schedules, calculate next occurrence
                     if let Some(ref config) = integration.schedule_config {
                         if let Some(expr) = config.get("cron_expression").and_then(|v| v.as_str()) {
-                            let schedule = Schedule::from_str(expr)
-                                .map_err(|e| IntegrationError::Validation(format!("Invalid cron expression: {}", e)))?;
-                            
+                            let schedule = Schedule::from_str(expr).map_err(|e| {
+                                IntegrationError::Validation(format!(
+                                    "Invalid cron expression: {}",
+                                    e
+                                ))
+                            })?;
+
                             schedule.upcoming(Utc).next()
                         } else {
                             None
@@ -292,7 +331,7 @@ impl IntegrationService {
                 }
             };
         }
-        
+
         // Update metadata if provided
         if let Some(metadata) = request.metadata {
             // Merge with existing metadata
@@ -300,17 +339,22 @@ impl IntegrationService {
                 integration.metadata.insert(key, value);
             }
         }
-        
+
         // Update timestamp
         integration.updated_at = Utc::now();
-        
+
         // Save to database
-        self.integration_repo.update_integration(&integration).await?;
-        
+        self.integration_repo
+            .update_integration(&integration)
+            .await?;
+
         // Check if integration has credentials
-        let credentials = self.credential_repo.get_credentials_for_integration(&id).await?;
+        let credentials = self
+            .credential_repo
+            .get_credentials_for_integration(&id)
+            .await?;
         let has_credentials = !credentials.is_empty();
-        
+
         // Convert to response
         let response = IntegrationResponse {
             id: integration.id,
@@ -330,23 +374,29 @@ impl IntegrationService {
             metadata: integration.metadata,
             has_credentials,
         };
-        
+
         Ok(response)
     }
-    
+
     // Delete integration
     pub async fn delete_integration(&self, id: Uuid) -> IntegrationResult<()> {
         // Check if integration exists
-        if self.integration_repo.get_integration_by_id(&id).await?.is_none() {
+        if self
+            .integration_repo
+            .get_integration_by_id(&id)
+            .await?
+            .is_none()
+        {
             return Err(IntegrationError::NotFound(format!(
-                "Integration with ID {} not found", id
+                "Integration with ID {} not found",
+                id
             )));
         }
-        
+
         // Delete integration
         self.integration_repo.delete_integration(&id).await
     }
-    
+
     // List integrations with filtering and pagination
     pub async fn list_integrations(
         &self,
@@ -356,27 +406,33 @@ impl IntegrationService {
         tag: Option<&str>,
         name_contains: Option<&str>,
         page: u64,
-        per_page: u64
+        per_page: u64,
     ) -> IntegrationResult<PaginatedResponse<IntegrationResponse>> {
         // Get integrations from repository
-        let (integrations, total) = self.integration_repo.list_integrations(
-            integration_type,
-            provider_id,
-            status,
-            tag,
-            name_contains,
-            page,
-            per_page
-        ).await?;
-        
+        let (integrations, total) = self
+            .integration_repo
+            .list_integrations(
+                integration_type,
+                provider_id,
+                status,
+                tag,
+                name_contains,
+                page,
+                per_page,
+            )
+            .await?;
+
         // Convert to responses
         let mut responses = Vec::with_capacity(integrations.len());
-        
+
         for integration in integrations {
             // Check if integration has credentials
-            let credentials = self.credential_repo.get_credentials_for_integration(&integration.id).await?;
+            let credentials = self
+                .credential_repo
+                .get_credentials_for_integration(&integration.id)
+                .await?;
             let has_credentials = !credentials.is_empty();
-            
+
             responses.push(IntegrationResponse {
                 id: integration.id,
                 name: integration.name,
@@ -396,10 +452,10 @@ impl IntegrationService {
                 has_credentials,
             });
         }
-        
+
         // Calculate pagination info
         let total_pages = (total + per_page - 1) / per_page;
-        
+
         Ok(PaginatedResponse {
             items: responses,
             total,
@@ -408,42 +464,54 @@ impl IntegrationService {
             pages: total_pages,
         })
     }
-    
+
     // Create credential for an integration
     pub async fn create_credential(
         &self,
         integration_id: Uuid,
-        request: CredentialRequest
+        request: CredentialRequest,
     ) -> IntegrationResult<CredentialResponse> {
         // Check if integration exists
-        let integration = self.integration_repo.get_integration_by_id(&integration_id).await?
-            .ok_or_else(|| IntegrationError::NotFound(format!(
-                "Integration with ID {} not found", integration_id
-            )))?;
-        
+        let integration = self
+            .integration_repo
+            .get_integration_by_id(&integration_id)
+            .await?
+            .ok_or_else(|| {
+                IntegrationError::NotFound(format!(
+                    "Integration with ID {} not found",
+                    integration_id
+                ))
+            })?;
+
         // Get provider to check if auth type is supported
-        let provider = self.provider_registry.get_provider(&integration.provider_id)
-            .ok_or_else(|| IntegrationError::NotFound(format!(
-                "Provider '{}' not found", integration.provider_id
-            )))?;
-        
+        let provider = self
+            .provider_registry
+            .get_provider(&integration.provider_id)
+            .ok_or_else(|| {
+                IntegrationError::NotFound(format!(
+                    "Provider '{}' not found",
+                    integration.provider_id
+                ))
+            })?;
+
         if !provider.supports_auth_type(&request.auth_type) {
             return Err(IntegrationError::Validation(format!(
                 "Auth type {:?} not supported by provider '{}'",
                 request.auth_type, integration.provider_id
             )));
         }
-        
+
         // Encrypt credential data
-        let data_json = serde_json::to_string(&request.data)
-            .map_err(|e| IntegrationError::Internal(format!("Failed to serialize credential data: {}", e)))?;
-        
+        let data_json = serde_json::to_string(&request.data).map_err(|e| {
+            IntegrationError::Internal(format!("Failed to serialize credential data: {}", e))
+        })?;
+
         let encrypted_data = self.credential_repo.encrypt_data(&data_json)?;
-        
+
         // Create credential
         let now = Utc::now();
         let id = Uuid::new_v4();
-        
+
         let credential = Credential {
             id,
             integration_id,
@@ -456,10 +524,10 @@ impl IntegrationService {
             last_used: None,
             metadata: request.metadata.unwrap_or_default(),
         };
-        
+
         // Save to database
         self.credential_repo.create_credential(&credential).await?;
-        
+
         // Convert to response (don't include the encrypted data)
         let response = CredentialResponse {
             id: credential.id,
@@ -472,25 +540,38 @@ impl IntegrationService {
             last_used: credential.last_used,
             metadata: credential.metadata,
         };
-        
+
         Ok(response)
     }
-    
+
     // Get credentials for an integration
-    pub async fn get_credentials(&self, integration_id: Uuid) -> IntegrationResult<Vec<CredentialResponse>> {
+    pub async fn get_credentials(
+        &self,
+        integration_id: Uuid,
+    ) -> IntegrationResult<Vec<CredentialResponse>> {
         // Check if integration exists
-        if self.integration_repo.get_integration_by_id(&integration_id).await?.is_none() {
+        if self
+            .integration_repo
+            .get_integration_by_id(&integration_id)
+            .await?
+            .is_none()
+        {
             return Err(IntegrationError::NotFound(format!(
-                "Integration with ID {} not found", integration_id
+                "Integration with ID {} not found",
+                integration_id
             )));
         }
-        
+
         // Get credentials
-        let credentials = self.credential_repo.get_credentials_for_integration(&integration_id).await?;
-        
+        let credentials = self
+            .credential_repo
+            .get_credentials_for_integration(&integration_id)
+            .await?;
+
         // Convert to responses
-        let responses = credentials.into_iter().map(|cred| {
-            CredentialResponse {
+        let responses = credentials
+            .into_iter()
+            .map(|cred| CredentialResponse {
                 id: cred.id,
                 integration_id: cred.integration_id,
                 auth_type: cred.auth_type,
@@ -500,63 +581,88 @@ impl IntegrationService {
                 expires_at: cred.expires_at,
                 last_used: cred.last_used,
                 metadata: cred.metadata,
-            }
-        }).collect();
-        
+            })
+            .collect();
+
         Ok(responses)
     }
-    
+
     // Delete credential
-    pub async fn delete_credential(&self, integration_id: Uuid, credential_id: Uuid) -> IntegrationResult<()> {
+    pub async fn delete_credential(
+        &self,
+        integration_id: Uuid,
+        credential_id: Uuid,
+    ) -> IntegrationResult<()> {
         // Check if integration exists
-        if self.integration_repo.get_integration_by_id(&integration_id).await?.is_none() {
+        if self
+            .integration_repo
+            .get_integration_by_id(&integration_id)
+            .await?
+            .is_none()
+        {
             return Err(IntegrationError::NotFound(format!(
-                "Integration with ID {} not found", integration_id
+                "Integration with ID {} not found",
+                integration_id
             )));
         }
-        
+
         // Check if credential exists and belongs to the integration
-        let credential = self.credential_repo.get_credential_by_id(&credential_id).await?
-            .ok_or_else(|| IntegrationError::NotFound(format!(
-                "Credential with ID {} not found", credential_id
-            )))?;
-        
+        let credential = self
+            .credential_repo
+            .get_credential_by_id(&credential_id)
+            .await?
+            .ok_or_else(|| {
+                IntegrationError::NotFound(format!(
+                    "Credential with ID {} not found",
+                    credential_id
+                ))
+            })?;
+
         if credential.integration_id != integration_id {
             return Err(IntegrationError::Validation(
-                "Credential does not belong to specified integration".into()
+                "Credential does not belong to specified integration".into(),
             ));
         }
-        
+
         // Delete credential
         self.credential_repo.delete_credential(&credential_id).await
     }
-    
+
     // Get execution record
     pub async fn get_execution(
         &self,
         integration_id: Uuid,
-        execution_id: Uuid
+        execution_id: Uuid,
     ) -> IntegrationResult<ExecutionResponse> {
         // Check if integration exists
-        if self.integration_repo.get_integration_by_id(&integration_id).await?.is_none() {
+        if self
+            .integration_repo
+            .get_integration_by_id(&integration_id)
+            .await?
+            .is_none()
+        {
             return Err(IntegrationError::NotFound(format!(
-                "Integration with ID {} not found", integration_id
+                "Integration with ID {} not found",
+                integration_id
             )));
         }
-        
+
         // Get execution record
-        let execution = self.get_execution_repo().get_execution_by_id(&execution_id).await?
-            .ok_or_else(|| IntegrationError::NotFound(format!(
-                "Execution with ID {} not found", execution_id
-            )))?;
-        
+        let execution = self
+            .get_execution_repo()
+            .get_execution_by_id(&execution_id)
+            .await?
+            .ok_or_else(|| {
+                IntegrationError::NotFound(format!("Execution with ID {} not found", execution_id))
+            })?;
+
         // Check if execution belongs to the integration
         if execution.integration_id != integration_id {
             return Err(IntegrationError::Validation(
-                "Execution does not belong to specified integration".into()
+                "Execution does not belong to specified integration".into(),
             ));
         }
-        
+
         // Convert to response
         let response = ExecutionResponse {
             id: execution.id,
@@ -570,25 +676,38 @@ impl IntegrationService {
             target: execution.target,
             execution_time_ms: execution.execution_time_ms,
         };
-        
+
         Ok(response)
     }
-    
+
     // Get recent executions for an integration
-    pub async fn get_recent_executions(&self, integration_id: Uuid) -> IntegrationResult<Vec<ExecutionResponse>> {
+    pub async fn get_recent_executions(
+        &self,
+        integration_id: Uuid,
+    ) -> IntegrationResult<Vec<ExecutionResponse>> {
         // Check if integration exists
-        if self.integration_repo.get_integration_by_id(&integration_id).await?.is_none() {
+        if self
+            .integration_repo
+            .get_integration_by_id(&integration_id)
+            .await?
+            .is_none()
+        {
             return Err(IntegrationError::NotFound(format!(
-                "Integration with ID {} not found", integration_id
+                "Integration with ID {} not found",
+                integration_id
             )));
         }
-        
+
         // Get recent executions
-        let executions = self.get_execution_repo().get_recent_executions(&integration_id, 10).await?;
-        
+        let executions = self
+            .get_execution_repo()
+            .get_recent_executions(&integration_id, 10)
+            .await?;
+
         // Convert to responses
-        let responses = executions.into_iter().map(|exec| {
-            ExecutionResponse {
+        let responses = executions
+            .into_iter()
+            .map(|exec| ExecutionResponse {
                 id: exec.id,
                 integration_id: exec.integration_id,
                 status: exec.status,
@@ -599,24 +718,26 @@ impl IntegrationService {
                 parameters: exec.parameters,
                 target: exec.target,
                 execution_time_ms: exec.execution_time_ms,
-            }
-        }).collect();
-        
+            })
+            .collect();
+
         Ok(responses)
     }
-    
+
     // List available providers
     pub async fn list_providers(&self) -> IntegrationResult<Vec<ProviderInfo>> {
         let providers = self.provider_registry.list_providers();
         Ok(providers)
     }
-    
+
     // Helper method to get ExecutionRepository
     // This should be in the struct, but for this example I'm stubbing it
     fn get_execution_repo(&self) -> Arc<ExecutionRepository> {
         // This would come from the instance, I'm just creating a placeholder
         // because we didn't actually store it in the struct
         // In a real implementation, this would be stored in the struct
-        Arc::new(ExecutionRepository::new(sqlx::PgPool::connect_lazy("postgres://localhost").unwrap()))
+        Arc::new(ExecutionRepository::new(
+            sqlx::PgPool::connect_lazy("postgres://localhost").unwrap(),
+        ))
     }
 }

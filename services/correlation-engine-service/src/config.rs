@@ -42,12 +42,12 @@ pub struct AppConfig {
 
 pub fn load_config() -> Result<AppConfig, ConfigError> {
     let env = env::var("RUN_ENV").unwrap_or_else(|_| "development".into());
-    
+
     let config = Config::builder()
         .add_source(File::with_name("config/default"))
         .add_source(File::with_name(&format!("config/{}", env)).required(false))
         .add_source(config::Environment::with_prefix("MIRAGE_CORRELATION"))
         .build()?;
-        
+
     config.try_deserialize()
 }

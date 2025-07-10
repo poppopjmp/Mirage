@@ -1,11 +1,11 @@
-use crate::config::{DatabaseConfig, MongoDBConfig, ElasticsearchConfig};
-use crate::models::{DataEntity, Relationship, QueryParams};
+use crate::config::{DatabaseConfig, ElasticsearchConfig, MongoDBConfig};
+use crate::models::{DataEntity, QueryParams, Relationship};
 use chrono::Utc;
-use elasticsearch::{Elasticsearch, http::transport::Transport, SearchParts};
+use elasticsearch::{http::transport::Transport, Elasticsearch, SearchParts};
 use futures::TryStreamExt;
 use mirage_common::{Error, Result};
 use mongodb::{
-    bson::{doc, Document, to_document},
+    bson::{doc, to_document, Document},
     options::{ClientOptions, FindOptions},
     Client as MongoClient, Database,
 };
@@ -57,7 +57,7 @@ pub async fn create_mongo_client(config: &MongoDBConfig) -> Result<Database> {
 pub fn create_elasticsearch_client(config: &ElasticsearchConfig) -> Result<Elasticsearch> {
     let transport = Transport::single_node(&config.url)
         .map_err(|e| Error::Database(format!("Elasticsearch connection failed: {}", e)))?;
-    
+
     Ok(Elasticsearch::new(transport))
 }
 
@@ -69,7 +69,12 @@ pub struct DataRepository {
 }
 
 impl DataRepository {
-    pub fn new(db_pool: DbPool, mongo_db: Database, es_client: Elasticsearch, es_index_prefix: String) -> Self {
+    pub fn new(
+        db_pool: DbPool,
+        mongo_db: Database,
+        es_client: Elasticsearch,
+        es_index_prefix: String,
+    ) -> Self {
         Self {
             db_pool,
             mongo_db,
@@ -110,25 +115,30 @@ impl DataRepository {
         let es_index = format!("{}_entities", self.es_index_prefix);
         let es_doc = serde_json::to_value(entity)
             .map_err(|e| Error::Internal(format!("Failed to serialize entity: {}", e)))?;
-        
+
         self.es_client
-            .index(elasticsearch::IndexParts::index_id(&es_index, &entity.id.to_string()))
+            .index(elasticsearch::IndexParts::index_id(
+                &es_index,
+                &entity.id.to_string(),
+            ))
             .body(es_doc)
             .send()
             .await
-            .map_err(|e| Error::Database(format!("Failed to index entity in Elasticsearch: {}", e)))?;
+            .map_err(|e| {
+                Error::Database(format!("Failed to index entity in Elasticsearch: {}", e))
+            })?;
 
         Ok(record_id)
     }
 
     pub async fn get_entity(&self, id: &Uuid) -> Result<Option<DataEntity>> {
         let collection = self.mongo_db.collection::<DataEntity>("entities");
-        
+
         let entity = collection
             .find_one(doc! {"id": id.to_string()}, None)
             .await
             .map_err(|e| Error::Database(format!("Failed to find entity: {}", e)))?;
-            
+
         Ok(entity)
     }
 
@@ -154,7 +164,7 @@ impl DataRepository {
         let collection = self.mongo_db.collection::<Document>("entities");
         let entity_doc = mongodb::bson::to_document(entity)
             .map_err(|e| Error::Internal(format!("Failed to serialize entity: {}", e)))?;
-        
+
         collection
             .replace_one(doc! {"id": entity.id.to_string()}, entity_doc, None)
             .await
@@ -164,13 +174,18 @@ impl DataRepository {
         let es_index = format!("{}_entities", self.es_index_prefix);
         let es_doc = serde_json::to_value(entity)
             .map_err(|e| Error::Internal(format!("Failed to serialize entity: {}", e)))?;
-        
+
         self.es_client
-            .index(elasticsearch::IndexParts::index_id(&es_index, &entity.id.to_string()))
+            .index(elasticsearch::IndexParts::index_id(
+                &es_index,
+                &entity.id.to_string(),
+            ))
             .body(es_doc)
             .send()
             .await
-            .map_err(|e| Error::Database(format!("Failed to index entity in Elasticsearch: {}", e)))?;
+            .map_err(|e| {
+                Error::Database(format!("Failed to index entity in Elasticsearch: {}", e))
+            })?;
 
         Ok(())
     }
@@ -197,10 +212,15 @@ impl DataRepository {
         // Delete from Elasticsearch
         let es_index = format!("{}_entities", self.es_index_prefix);
         self.es_client
-            .delete(elasticsearch::DeleteParts::index_id(&es_index, &id.to_string()))
+            .delete(elasticsearch::DeleteParts::index_id(
+                &es_index,
+                &id.to_string(),
+            ))
             .send()
             .await
-            .map_err(|e| Error::Database(format!("Failed to delete entity from Elasticsearch: {}", e)))?;
+            .map_err(|e| {
+                Error::Database(format!("Failed to delete entity from Elasticsearch: {}", e))
+            })?;
 
         Ok(result.rows_affected() > 0)
     }
@@ -208,7 +228,7 @@ impl DataRepository {
     pub async fn query_entities(&self, params: &QueryParams) -> Result<Vec<DataEntity>> {
         // For complex queries, we'll use Elasticsearch
         let es_index = format!("{}_entities", self.es_index_prefix);
-        
+
         // Build Elasticsearch query
         let mut query = serde_json::json!({
             "query": {
@@ -222,34 +242,34 @@ impl DataRepository {
                 { "created_at": { "order": "desc" } }
             ]
         });
-        
+
         let must = query["query"]["bool"]["must"].as_array_mut().unwrap();
-        
+
         // Add query conditions based on params
         if let Some(ref entity_type) = params.entity_type {
             must.push(serde_json::json!({
                 "term": { "entity_type": entity_type }
             }));
         }
-        
+
         if let Some(ref value) = params.value {
             must.push(serde_json::json!({
                 "match": { "value": value }
             }));
         }
-        
+
         if let Some(ref source_module) = params.source_module {
             must.push(serde_json::json!({
                 "term": { "source_module": source_module.to_string() }
             }));
         }
-        
+
         if let Some(ref scan_id) = params.scan_id {
             must.push(serde_json::json!({
                 "term": { "scan_id": scan_id.to_string() }
             }));
         }
-        
+
         // Date range
         if params.from_date.is_some() || params.to_date.is_some() {
             let mut range = serde_json::json!({
@@ -257,20 +277,23 @@ impl DataRepository {
                     "created_at": {}
                 }
             });
-            
+
             if let Some(from_date) = params.from_date {
-                range["range"]["created_at"]["gte"] = serde_json::Value::String(from_date.to_rfc3339());
+                range["range"]["created_at"]["gte"] =
+                    serde_json::Value::String(from_date.to_rfc3339());
             }
-            
+
             if let Some(to_date) = params.to_date {
-                range["range"]["created_at"]["lte"] = serde_json::Value::String(to_date.to_rfc3339());
+                range["range"]["created_at"]["lte"] =
+                    serde_json::Value::String(to_date.to_rfc3339());
             }
-            
+
             must.push(range);
         }
-        
+
         // Execute search
-        let response = self.es_client
+        let response = self
+            .es_client
             .search(SearchParts::index(&[&es_index]))
             .body(query)
             .send()
@@ -278,14 +301,16 @@ impl DataRepository {
             .map_err(|e| Error::Database(format!("Failed to search entities: {}", e)))?;
 
         // Parse response
-        let response_body = response.json::<serde_json::Value>()
+        let response_body = response
+            .json::<serde_json::Value>()
             .await
             .map_err(|e| Error::Database(format!("Failed to parse search response: {}", e)))?;
-        
+
         // Extract hits and convert to DataEntity objects
-        let hits = response_body["hits"]["hits"].as_array()
+        let hits = response_body["hits"]["hits"]
+            .as_array()
             .ok_or_else(|| Error::Internal("Invalid search response format".to_string()))?;
-        
+
         let mut entities = Vec::new();
         for hit in hits {
             let source = hit["_source"].clone();
@@ -293,7 +318,7 @@ impl DataRepository {
                 .map_err(|e| Error::Internal(format!("Failed to deserialize entity: {}", e)))?;
             entities.push(entity);
         }
-        
+
         Ok(entities)
     }
 
@@ -326,21 +351,30 @@ impl DataRepository {
             doc.insert("source_id", relationship.source_id.to_string());
             doc.insert("target_id", relationship.target_id.to_string());
             doc.insert("relationship_type", &relationship.relationship_type);
-            doc.insert("data", mongodb::bson::to_bson(data)
-                .map_err(|e| Error::Internal(format!("Failed to serialize relationship data: {}", e)))?);
+            doc.insert(
+                "data",
+                mongodb::bson::to_bson(data).map_err(|e| {
+                    Error::Internal(format!("Failed to serialize relationship data: {}", e))
+                })?,
+            );
             doc.insert("created_at", relationship.created_at);
             doc.insert("updated_at", relationship.updated_at);
-            
-            mongo_collection
-                .insert_one(doc, None)
-                .await
-                .map_err(|e| Error::Database(format!("Failed to store relationship data in MongoDB: {}", e)))?;
+
+            mongo_collection.insert_one(doc, None).await.map_err(|e| {
+                Error::Database(format!(
+                    "Failed to store relationship data in MongoDB: {}",
+                    e
+                ))
+            })?;
         }
 
         Ok(record_id)
     }
 
-    pub async fn find_relationships_by_source(&self, source_id: &Uuid) -> Result<Vec<Relationship>> {
+    pub async fn find_relationships_by_source(
+        &self,
+        source_id: &Uuid,
+    ) -> Result<Vec<Relationship>> {
         let relationships = sqlx::query_as!(
             RelationshipRecord,
             r#"
@@ -366,28 +400,33 @@ impl DataRepository {
                 created_at: record.created_at,
                 updated_at: record.updated_at,
             };
-            
+
             // Get additional data from MongoDB if available
             let mongo_collection = self.mongo_db.collection::<Document>("relationships");
             if let Some(doc) = mongo_collection
                 .find_one(doc! {"id": relationship.id.to_string()}, None)
                 .await
-                .map_err(|e| Error::Database(format!("Failed to fetch relationship data: {}", e)))? {
-                
+                .map_err(|e| Error::Database(format!("Failed to fetch relationship data: {}", e)))?
+            {
                 if let Ok(data_bson) = doc.get_document("data") {
-                    if let Ok(data) = mongodb::bson::from_bson(mongodb::bson::Bson::Document(data_bson.clone())) {
+                    if let Ok(data) =
+                        mongodb::bson::from_bson(mongodb::bson::Bson::Document(data_bson.clone()))
+                    {
                         relationship.data = Some(data);
                     }
                 }
             }
-            
+
             results.push(relationship);
         }
-        
+
         Ok(results)
     }
 
-    pub async fn find_relationships_by_target(&self, target_id: &Uuid) -> Result<Vec<Relationship>> {
+    pub async fn find_relationships_by_target(
+        &self,
+        target_id: &Uuid,
+    ) -> Result<Vec<Relationship>> {
         let relationships = sqlx::query_as!(
             RelationshipRecord,
             r#"
@@ -413,23 +452,25 @@ impl DataRepository {
                 created_at: record.created_at,
                 updated_at: record.updated_at,
             };
-            
+
             let mongo_collection = self.mongo_db.collection::<Document>("relationships");
             if let Some(doc) = mongo_collection
                 .find_one(doc! {"id": relationship.id.to_string()}, None)
                 .await
-                .map_err(|e| Error::Database(format!("Failed to fetch relationship data: {}", e)))? {
-                
+                .map_err(|e| Error::Database(format!("Failed to fetch relationship data: {}", e)))?
+            {
                 if let Ok(data_bson) = doc.get_document("data") {
-                    if let Ok(data) = mongodb::bson::from_bson(mongodb::bson::Bson::Document(data_bson.clone())) {
+                    if let Ok(data) =
+                        mongodb::bson::from_bson(mongodb::bson::Bson::Document(data_bson.clone()))
+                    {
                         relationship.data = Some(data);
                     }
                 }
             }
-            
+
             results.push(relationship);
         }
-        
+
         Ok(results)
     }
 }

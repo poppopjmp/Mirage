@@ -2,8 +2,8 @@
 
 use chrono::{DateTime, Utc};
 use rand::{distributions::Alphanumeric, Rng};
-use uuid::Uuid;
 use std::time::{SystemTime, UNIX_EPOCH};
+use uuid::Uuid;
 
 /// Utility functions for IP address operations
 pub mod ip {
@@ -18,15 +18,12 @@ pub mod ip {
         if let Ok(ip) = IpAddr::from_str(ip) {
             match ip {
                 IpAddr::V4(ipv4) => {
-                    ipv4.is_private() || 
-                    ipv4.is_loopback() || 
-                    ipv4.is_link_local() || 
-                    ipv4.is_documentation()
+                    ipv4.is_private()
+                        || ipv4.is_loopback()
+                        || ipv4.is_link_local()
+                        || ipv4.is_documentation()
                 }
-                IpAddr::V6(ipv6) => {
-                    ipv6.is_loopback() || 
-                    ipv6.is_unspecified()
-                }
+                IpAddr::V6(ipv6) => ipv6.is_loopback() || ipv6.is_unspecified(),
             }
         } else {
             false
@@ -36,13 +33,14 @@ pub mod ip {
 
 /// Utility functions for domain operations
 pub mod domain {
-    use regex::Regex;
     use lazy_static::lazy_static;
+    use regex::Regex;
 
     lazy_static! {
         static ref DOMAIN_REGEX: Regex = Regex::new(
             r"^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z0-9][a-z0-9-]{0,61}[a-z0-9]$"
-        ).unwrap();
+        )
+        .unwrap();
     }
 
     pub fn is_valid_domain(domain: &str) -> bool {
@@ -52,8 +50,8 @@ pub mod domain {
 
 /// Utility functions for email operations
 pub mod email {
-    use regex::Regex;
     use lazy_static::lazy_static;
+    use regex::Regex;
 
     lazy_static! {
         static ref EMAIL_REGEX: Regex = Regex::new(
@@ -78,7 +76,7 @@ pub mod timing {
         let hours = seconds / 3600;
         let minutes = (seconds % 3600) / 60;
         let seconds = seconds % 60;
-        
+
         if hours > 0 {
             format!("{}h {}m {}s", hours, minutes, seconds)
         } else if minutes > 0 {
@@ -92,15 +90,15 @@ pub mod timing {
 /// UUID utilities
 pub mod id {
     use super::*;
-    
+
     pub fn generate_id() -> Uuid {
         Uuid::new_v4()
     }
-    
+
     pub fn parse_id(id: &str) -> Option<Uuid> {
         Uuid::parse_str(id).ok()
     }
-    
+
     pub fn is_valid_uuid(uuid_str: &str) -> bool {
         Uuid::parse_str(uuid_str).is_ok()
     }
@@ -111,7 +109,7 @@ pub fn truncate_string(s: &str, max_len: usize) -> String {
     if s.len() <= max_len {
         s.to_string()
     } else {
-        format!("{}...", &s[0..max_len-3])
+        format!("{}...", &s[0..max_len - 3])
     }
 }
 
@@ -148,7 +146,13 @@ pub fn is_valid_uuid(s: &str) -> bool {
 /// Create a sanitized version of a string for filenames
 pub fn sanitize_filename(s: &str) -> String {
     s.chars()
-        .map(|c| if c.is_alphanumeric() || c == '-' || c == '_' || c == '.' { c } else { '_' })
+        .map(|c| {
+            if c.is_alphanumeric() || c == '-' || c == '_' || c == '.' {
+                c
+            } else {
+                '_'
+            }
+        })
         .collect()
 }
 
@@ -177,16 +181,16 @@ pub fn current_timestamp() -> u64 {
 /// URL manipulation utilities
 pub fn normalize_url(url: &str) -> String {
     let mut normalized = url.to_lowercase();
-    
+
     // Ensure the URL starts with a scheme
     if !normalized.starts_with("http://") && !normalized.starts_with("https://") {
         normalized = format!("http://{}", normalized);
     }
-    
+
     // Remove trailing slash if present
     if normalized.ends_with('/') {
         normalized.pop();
     }
-    
+
     normalized
 }

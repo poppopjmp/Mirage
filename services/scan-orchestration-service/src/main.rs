@@ -1,7 +1,4 @@
-use actix_web::{
-    web, App, HttpServer, middleware::Logger,
-    HttpResponse, Responder,
-};
+use actix_web::{middleware::Logger, web, App, HttpResponse, HttpServer, Responder};
 use mirage_common::models::Scan;
 use tracing::info;
 
@@ -19,7 +16,7 @@ async fn health_check() -> impl Responder {
 async fn main() -> std::io::Result<()> {
     // Initialize logging
     tracing_subscriber::fmt::init();
-    
+
     // Load configuration
     let config = match config::load_config() {
         Ok(config) => config,
@@ -31,7 +28,7 @@ async fn main() -> std::io::Result<()> {
             ));
         }
     };
-    
+
     let db_pool = match repositories::create_db_pool(&config.database).await {
         Ok(pool) => pool,
         Err(e) => {
@@ -44,8 +41,11 @@ async fn main() -> std::io::Result<()> {
     };
 
     let scan_service = services::ScanService::new(db_pool.clone());
-    
-    info!("Starting Scan Orchestration Service on port {}", config.server.port);
+
+    info!(
+        "Starting Scan Orchestration Service on port {}",
+        config.server.port
+    );
 
     HttpServer::new(move || {
         App::new()
@@ -56,7 +56,7 @@ async fn main() -> std::io::Result<()> {
             .service(
                 web::scope("/api/v1")
                     .route("/health", web::get().to(health_check))
-                    .service(handlers::scan_routes())
+                    .service(handlers::scan_routes()),
             )
     })
     .bind(format!("0.0.0.0:{}", config.server.port))?

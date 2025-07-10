@@ -1,15 +1,12 @@
-use actix_web::{
-    web, App, HttpServer, middleware::Logger,
-    HttpResponse, Responder,
-};
+use actix_web::{middleware::Logger, web, App, HttpResponse, HttpServer, Responder};
 use tracing::info;
 
+mod analysis;
 mod config;
+mod handlers;
 mod models;
 mod repositories;
 mod services;
-mod analysis;
-mod handlers;
 
 async fn health_check() -> impl Responder {
     HttpResponse::Ok().json(serde_json::json!({ "status": "ok" }))
@@ -19,7 +16,7 @@ async fn health_check() -> impl Responder {
 async fn main() -> std::io::Result<()> {
     // Initialize logging
     tracing_subscriber::fmt::init();
-    
+
     // Load configuration
     let config = match config::load_config() {
         Ok(config) => config,
@@ -31,7 +28,7 @@ async fn main() -> std::io::Result<()> {
             ));
         }
     };
-    
+
     // Set up database connections
     let graph_db = match repositories::create_graph_db(&config.graph_database).await {
         Ok(db) => db,
@@ -43,7 +40,7 @@ async fn main() -> std::io::Result<()> {
             ));
         }
     };
-    
+
     // Set up HTTP client for external services
     let http_client = reqwest::Client::builder()
         .timeout(std::time::Duration::from_secs(30))
@@ -54,7 +51,7 @@ async fn main() -> std::io::Result<()> {
     let correlation_service = web::Data::new(services::CorrelationService::new(
         graph_db.clone(),
         http_client.clone(),
-        config.clone()
+        config.clone(),
     ));
 
     // Start background correlation tasks if enabled
@@ -75,7 +72,7 @@ async fn main() -> std::io::Result<()> {
             .service(
                 web::scope("/api/v1")
                     .route("/health", web::get().to(health_check))
-                    .service(handlers::correlation_routes())
+                    .service(handlers::correlation_routes()),
             )
     })
     .bind(format!("0.0.0.0:{}", config.server.port))?

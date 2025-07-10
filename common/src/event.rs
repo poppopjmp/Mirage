@@ -1,7 +1,7 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-use uuid::Uuid;
 use serde_json::Value;
+use uuid::Uuid;
 
 /// Represents an event in the system
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -17,28 +17,28 @@ pub struct Event {
 pub enum EventType {
     #[serde(rename = "entity_created")]
     EntityCreated,
-    
+
     #[serde(rename = "entity_updated")]
     EntityUpdated,
-    
+
     #[serde(rename = "relationship_created")]
     RelationshipCreated,
-    
+
     #[serde(rename = "scan_started")]
     ScanStarted,
-    
+
     #[serde(rename = "scan_completed")]
     ScanCompleted,
-    
+
     #[serde(rename = "module_executed")]
     ModuleExecuted,
-    
+
     #[serde(rename = "user_action")]
     UserAction,
-    
+
     #[serde(rename = "system_alert")]
     SystemAlert,
-    
+
     #[serde(rename = "custom")]
     Custom(String),
 }
@@ -63,9 +63,7 @@ pub struct EventHandler {
 
 impl EventHandler {
     pub fn new() -> Self {
-        EventHandler {
-            events: Vec::new(),
-        }
+        EventHandler { events: Vec::new() }
     }
 
     pub fn add_event(&mut self, event: Event) {
@@ -73,11 +71,12 @@ impl EventHandler {
     }
 
     pub fn get_events(&self, event_type: &EventType) -> Option<Vec<&Event>> {
-        let filtered = self.events
+        let filtered = self
+            .events
             .iter()
             .filter(|e| &e.event_type == event_type)
             .collect::<Vec<_>>();
-        
+
         if filtered.is_empty() {
             None
         } else {

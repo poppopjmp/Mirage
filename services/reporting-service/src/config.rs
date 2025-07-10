@@ -25,7 +25,7 @@ pub struct CorrelationConfig {
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct ReportConfig {
-    pub output_dir: String, 
+    pub output_dir: String,
     pub template_dir: String,
     pub max_entities_per_report: usize,
     pub logo_path: String,
@@ -42,12 +42,12 @@ pub struct AppConfig {
 
 pub fn load_config() -> Result<AppConfig, ConfigError> {
     let env = env::var("RUN_ENV").unwrap_or_else(|_| "development".into());
-    
+
     let config = Config::builder()
         .add_source(File::with_name("config/default"))
         .add_source(File::with_name(&format!("config/{}", env)).required(false))
         .add_source(config::Environment::with_prefix("MIRAGE_REPORTING"))
         .build()?;
-        
+
     config.try_deserialize()
 }

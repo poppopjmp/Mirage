@@ -1,10 +1,8 @@
-use crate::models::{
-    Scan, ScanStatus, ScanTarget, ScanTargetStatus, ScanModule, ScanModuleStatus
-};
-use crate::error::{ScannerError, ScannerResult};
 use crate::config::DatabaseConfig;
+use crate::error::{ScannerError, ScannerResult};
+use crate::models::{Scan, ScanModule, ScanModuleStatus, ScanStatus, ScanTarget, ScanTargetStatus};
 use chrono::{DateTime, Utc};
-use sqlx::{postgres::PgPoolOptions, Pool, Postgres, query, query_as};
+use sqlx::{postgres::PgPoolOptions, query, query_as, Pool, Postgres};
 use std::collections::HashMap;
 use uuid::Uuid;
 
@@ -18,9 +16,7 @@ pub async fn create_db_pool(config: &DatabaseConfig) -> ScannerResult<DbPool> {
         .await?;
 
     // Run migrations
-    sqlx::migrate!("./migrations")
-        .run(&pool)
-        .await?;
+    sqlx::migrate!("./migrations").run(&pool).await?;
 
     Ok(pool)
 }
@@ -33,7 +29,7 @@ impl ScanRepository {
     pub fn new(pool: DbPool) -> Self {
         Self { pool }
     }
-    
+
     pub async fn create_scan(&self, scan: &Scan) -> ScannerResult<()> {
         query!(
             r#"
@@ -62,10 +58,10 @@ impl ScanRepository {
         )
         .execute(&self.pool)
         .await?;
-        
+
         Ok(())
     }
-    
+
     pub async fn get_scan_by_id(&self, id: Uuid) -> ScannerResult<Option<Scan>> {
         let row = query!(
             r#"
@@ -80,11 +76,11 @@ impl ScanRepository {
         )
         .fetch_optional(&self.pool)
         .await?;
-        
+
         match row {
             Some(r) => {
                 let metadata: HashMap<String, String> = serde_json::from_value(r.metadata)?;
-                
+
                 Ok(Some(Scan {
                     id: r.id,
                     name: r.name,
@@ -102,19 +98,19 @@ impl ScanRepository {
                     progress: r.progress,
                     estimated_completion_time: r.estimated_completion_time,
                 }))
-            },
+            }
             None => Ok(None),
         }
     }
-    
+
     pub async fn update_scan_status(
-        &self, 
-        id: Uuid, 
+        &self,
+        id: Uuid,
         status: ScanStatus,
         started_at: Option<DateTime<Utc>>,
         completed_at: Option<DateTime<Utc>>,
         progress: Option<i32>,
-        error_message: Option<String>
+        error_message: Option<String>,
     ) -> ScannerResult<()> {
         query!(
             r#"
@@ -138,10 +134,10 @@ impl ScanRepository {
         )
         .execute(&self.pool)
         .await?;
-        
+
         Ok(())
     }
-    
+
     pub async fn update_scan(&self, scan: &Scan) -> ScannerResult<()> {
         query!(
             r#"
@@ -173,10 +169,10 @@ impl ScanRepository {
         )
         .execute(&self.pool)
         .await?;
-        
+
         Ok(())
     }
-    
+
     pub async fn list_scans(
         &self,
         status: Option<&ScanStatus>,
@@ -203,7 +199,7 @@ impl ScanRepository {
         )
         .fetch_all(&self.pool)
         .await?;
-        
+
         let total: i64 = query!(
             r#"
             SELECT COUNT(*) as count FROM scans
@@ -213,11 +209,11 @@ impl ScanRepository {
         .await?
         .count
         .unwrap_or(0);
-        
+
         let mut result = Vec::with_capacity(scans.len());
         for r in scans {
             let metadata: HashMap<String, String> = serde_json::from_value(r.metadata)?;
-            
+
             result.push(Scan {
                 id: r.id,
                 name: r.name,
@@ -236,10 +232,10 @@ impl ScanRepository {
                 estimated_completion_time: r.estimated_completion_time,
             });
         }
-        
+
         Ok((result, total as u64))
     }
-    
+
     pub async fn get_pending_scans(&self, limit: i64) -> ScannerResult<Vec<Scan>> {
         let scans = query!(
             r#"
@@ -256,11 +252,11 @@ impl ScanRepository {
         )
         .fetch_all(&self.pool)
         .await?;
-        
+
         let mut result = Vec::with_capacity(scans.len());
         for r in scans {
             let metadata: HashMap<String, String> = serde_json::from_value(r.metadata)?;
-            
+
             result.push(Scan {
                 id: r.id,
                 name: r.name,
@@ -279,7 +275,7 @@ impl ScanRepository {
                 estimated_completion_time: r.estimated_completion_time,
             });
         }
-        
+
         Ok(result)
     }
 }
@@ -292,7 +288,7 @@ impl ScanTargetRepository {
     pub fn new(pool: DbPool) -> Self {
         Self { pool }
     }
-    
+
     pub async fn create_target(&self, target: &ScanTarget) -> ScannerResult<()> {
         query!(
             r#"
@@ -318,10 +314,10 @@ impl ScanTargetRepository {
         )
         .execute(&self.pool)
         .await?;
-        
+
         Ok(())
     }
-    
+
     pub async fn get_targets_for_scan(&self, scan_id: Uuid) -> ScannerResult<Vec<ScanTarget>> {
         let targets = query!(
             r#"
@@ -337,11 +333,11 @@ impl ScanTargetRepository {
         )
         .fetch_all(&self.pool)
         .await?;
-        
+
         let mut result = Vec::with_capacity(targets.len());
         for r in targets {
             let metadata: HashMap<String, String> = serde_json::from_value(r.metadata)?;
-            
+
             result.push(ScanTarget {
                 id: r.id,
                 scan_id: r.scan_id,
@@ -357,18 +353,18 @@ impl ScanTargetRepository {
                 result_count: r.result_count,
             });
         }
-        
+
         Ok(result)
     }
-    
+
     pub async fn update_target_status(
-        &self, 
-        id: Uuid, 
+        &self,
+        id: Uuid,
         status: ScanTargetStatus,
         started_at: Option<DateTime<Utc>>,
         completed_at: Option<DateTime<Utc>>,
         error_message: Option<String>,
-        result_count: Option<i32>
+        result_count: Option<i32>,
     ) -> ScannerResult<()> {
         query!(
             r#"
@@ -392,10 +388,10 @@ impl ScanTargetRepository {
         )
         .execute(&self.pool)
         .await?;
-        
+
         Ok(())
     }
-    
+
     pub async fn get_pending_targets(&self, scan_id: Uuid) -> ScannerResult<Vec<ScanTarget>> {
         let targets = query!(
             r#"
@@ -411,11 +407,11 @@ impl ScanTargetRepository {
         )
         .fetch_all(&self.pool)
         .await?;
-        
+
         let mut result = Vec::with_capacity(targets.len());
         for r in targets {
             let metadata: HashMap<String, String> = serde_json::from_value(r.metadata)?;
-            
+
             result.push(ScanTarget {
                 id: r.id,
                 scan_id: r.scan_id,
@@ -431,7 +427,7 @@ impl ScanTargetRepository {
                 result_count: r.result_count,
             });
         }
-        
+
         Ok(result)
     }
 }
@@ -444,7 +440,7 @@ impl ScanModuleRepository {
     pub fn new(pool: DbPool) -> Self {
         Self { pool }
     }
-    
+
     pub async fn create_module(&self, module: &ScanModule) -> ScannerResult<()> {
         query!(
             r#"
@@ -468,10 +464,10 @@ impl ScanModuleRepository {
         )
         .execute(&self.pool)
         .await?;
-        
+
         Ok(())
     }
-    
+
     pub async fn get_modules_for_scan(&self, scan_id: Uuid) -> ScannerResult<Vec<ScanModule>> {
         let modules = query!(
             r#"
@@ -487,11 +483,12 @@ impl ScanModuleRepository {
         )
         .fetch_all(&self.pool)
         .await?;
-        
+
         let mut result = Vec::with_capacity(modules.len());
         for r in modules {
-            let parameters: HashMap<String, serde_json::Value> = serde_json::from_value(r.parameters)?;
-            
+            let parameters: HashMap<String, serde_json::Value> =
+                serde_json::from_value(r.parameters)?;
+
             result.push(ScanModule {
                 id: r.id,
                 scan_id: r.scan_id,
@@ -506,13 +503,13 @@ impl ScanModuleRepository {
                 updated_at: r.updated_at,
             });
         }
-        
+
         Ok(result)
     }
-    
+
     pub async fn update_module_status(
-        &self, 
-        id: Uuid, 
+        &self,
+        id: Uuid,
         status: ScanModuleStatus,
     ) -> ScannerResult<()> {
         query!(
@@ -529,7 +526,7 @@ impl ScanModuleRepository {
         )
         .execute(&self.pool)
         .await?;
-        
+
         Ok(())
     }
 }

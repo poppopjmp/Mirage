@@ -1,7 +1,10 @@
-use crate::models::{UserModel, TeamModel, RoleModel, TeamMemberModel, CreateUserRequest, UpdateUserRequest, CreateTeamRequest, UpdateTeamRequest};
-use crate::repositories::{DbPool, UserRepository, TeamRepository, RoleRepository};
+use crate::models::{
+    CreateTeamRequest, CreateUserRequest, RoleModel, TeamMemberModel, TeamModel, UpdateTeamRequest,
+    UpdateUserRequest, UserModel,
+};
+use crate::repositories::{DbPool, RoleRepository, TeamRepository, UserRepository};
 use chrono::Utc;
-use mirage_common::{Error, Result, models::User};
+use mirage_common::{models::User, Error, Result};
 use uuid::Uuid;
 
 pub struct UserService {
@@ -26,9 +29,12 @@ impl UserService {
     }
 
     pub async fn get_user(&self, id: &Uuid) -> Result<User> {
-        let user = self.user_repo.find_by_id(id).await?
+        let user = self
+            .user_repo
+            .find_by_id(id)
+            .await?
             .ok_or_else(|| Error::NotFound(format!("User with ID {} not found", id)))?;
-        
+
         Ok(user.into())
     }
 
@@ -59,7 +65,10 @@ impl UserService {
 
     pub async fn update_user(&self, id: &Uuid, req: UpdateUserRequest) -> Result<User> {
         // Get existing user
-        let mut user = self.user_repo.find_by_id(id).await?
+        let mut user = self
+            .user_repo
+            .find_by_id(id)
+            .await?
             .ok_or_else(|| Error::NotFound(format!("User with ID {} not found", id)))?;
 
         // Update fields if provided
@@ -105,7 +114,9 @@ impl UserService {
     }
 
     pub async fn get_team(&self, id: &Uuid) -> Result<TeamModel> {
-        self.team_repo.find_by_id(id).await?
+        self.team_repo
+            .find_by_id(id)
+            .await?
             .ok_or_else(|| Error::NotFound(format!("Team with ID {} not found", id)))
     }
 
@@ -122,7 +133,10 @@ impl UserService {
     }
 
     pub async fn update_team(&self, id: &Uuid, req: UpdateTeamRequest) -> Result<TeamModel> {
-        let mut team = self.team_repo.find_by_id(id).await?
+        let mut team = self
+            .team_repo
+            .find_by_id(id)
+            .await?
             .ok_or_else(|| Error::NotFound(format!("Team with ID {} not found", id)))?;
 
         if let Some(name) = req.name {
@@ -142,11 +156,15 @@ impl UserService {
 
     pub async fn add_team_member(&self, team_id: &Uuid, user_id: &Uuid, role: &str) -> Result<()> {
         // Verify team exists
-        self.team_repo.find_by_id(team_id).await?
+        self.team_repo
+            .find_by_id(team_id)
+            .await?
             .ok_or_else(|| Error::NotFound(format!("Team with ID {} not found", team_id)))?;
 
         // Verify user exists
-        self.user_repo.find_by_id(user_id).await?
+        self.user_repo
+            .find_by_id(user_id)
+            .await?
             .ok_or_else(|| Error::NotFound(format!("User with ID {} not found", user_id)))?;
 
         let member = TeamMemberModel {
@@ -165,7 +183,9 @@ impl UserService {
 
     pub async fn get_team_members(&self, team_id: &Uuid) -> Result<Vec<(User, String)>> {
         // Verify team exists
-        self.team_repo.find_by_id(team_id).await?
+        self.team_repo
+            .find_by_id(team_id)
+            .await?
             .ok_or_else(|| Error::NotFound(format!("Team with ID {} not found", team_id)))?;
 
         let members = self.team_repo.get_team_members(team_id).await?;
@@ -182,7 +202,9 @@ impl UserService {
 
     pub async fn get_user_teams(&self, user_id: &Uuid) -> Result<Vec<(TeamModel, String)>> {
         // Verify user exists
-        self.user_repo.find_by_id(user_id).await?
+        self.user_repo
+            .find_by_id(user_id)
+            .await?
             .ok_or_else(|| Error::NotFound(format!("User with ID {} not found", user_id)))?;
 
         self.team_repo.get_user_teams(user_id).await
@@ -194,7 +216,9 @@ impl UserService {
     }
 
     pub async fn get_role(&self, id: &Uuid) -> Result<RoleModel> {
-        self.role_repo.find_by_id(id).await?
+        self.role_repo
+            .find_by_id(id)
+            .await?
             .ok_or_else(|| Error::NotFound(format!("Role with ID {} not found", id)))
     }
 

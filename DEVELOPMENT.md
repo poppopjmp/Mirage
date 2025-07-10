@@ -32,7 +32,7 @@ Mirage is an open-source OSINT (Open Source Intelligence) platform designed for 
 
 1. Clone the repository:
    ```bash
-   git clone https://github.com/your-org/mirage.git
+   git clone https://github.com/poppopjmp/Mirage.git
    cd mirage
    ```
 
