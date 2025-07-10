@@ -1,5 +1,4 @@
 use thiserror::Error;
-use std::fmt;
 
 #[derive(Error, Debug)]
 pub enum Error {
@@ -67,12 +66,6 @@ impl From<reqwest::Error> for Error {
         } else {
             Error::ExternalApi(err.to_string())
         }
-    }
-}
-
-impl fmt::Display for Error {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self)
     }
 }
 

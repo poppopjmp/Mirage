@@ -121,22 +121,6 @@ pub struct Target {
     pub tags: Vec<String>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-#[serde(rename_all = "snake_case")]
-pub enum TargetType {
-    Domain,
-    Subdomain,
-    IPAddress,
-    URL,
-    Email,
-    Person,
-    Organization,
-    Username,
-    PhoneNumber,
-    SocialMediaProfile,
-    Other(String),
-}
-
 impl Target {
     pub fn new(target_type: TargetType, value: &str) -> Self {
         Self {

@@ -24,6 +24,7 @@ regex = "1.9"
 once_cell = { workspace = true }
 futures = { workspace = true }
 rand = { workspace = true }
+lazy_static = "1.4"
 
 [dev-dependencies]
 tokio-test = "0.4"
