@@ -1,6 +1,7 @@
 [package]
 name = "mirage-correlation-engine"
 version = "0.1.0"
+edition = "2021"
 
 description = "Correlation engine service for Mirage OSINT platform"
 

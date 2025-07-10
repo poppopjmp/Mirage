@@ -1,6 +1,7 @@
 [package]
 name = "mirage-scanner-coordinator"
 version = "0.1.0"
+edition = "2021"
 
 description = "Scanner coordination service for Mirage OSINT platform"
 

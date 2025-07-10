@@ -1,6 +1,7 @@
 [package]
 name = "mirage-data-collection"
 version = "0.1.0"
+edition = "2021"
 
 description = "Data collection service for Mirage OSINT platform"
 

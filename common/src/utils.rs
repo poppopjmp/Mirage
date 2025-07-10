@@ -1,15 +1,13 @@
 //! Utility functions for the Mirage platform
 
-use chrono::{DateTime, Utc, TimeZone};
+use chrono::{DateTime, Utc};
 use rand::{distributions::Alphanumeric, Rng};
 use uuid::Uuid;
-use std::net::IpAddr;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 /// Utility functions for IP address operations
 pub mod ip {
-    use super::*;
-    use std::net::{Ipv4Addr, Ipv6Addr};
+    use std::net::IpAddr;
     use std::str::FromStr;
 
     pub fn is_valid_ip(ip: &str) -> bool {
@@ -129,36 +127,29 @@ pub fn parse_datetime(date_str: &str) -> Result<DateTime<Utc>, chrono::ParseErro
     }
 }
 
-// Simple validation utilities
-pub fn is_valid_email(email: &str) -> bool {
-    if email.is_empty() || !email.contains('@') {
-        return false;
-    }
-    
-    let parts: Vec<&str> = email.split('@').collect();
-    if parts.len() != 2 || parts[0].is_empty() || parts[1].is_empty() {
-        return false;
-    }
-    
-    let domain_parts: Vec<&str> = parts[1].split('.').collect();
-    domain_parts.len() >= 2 && !domain_parts.iter().any(|part| part.is_empty())
+/// Format a UUID to a standard string without hyphens
+pub fn format_uuid_compact(id: &Uuid) -> String {
+    id.to_string().replace("-", "")
 }
 
-// URL manipulation utilities
-pub fn normalize_url(url: &str) -> String {
-    let mut normalized = url.to_lowercase();
-    
-    // Ensure the URL starts with a scheme
-    if !normalized.starts_with("http://") && !normalized.starts_with("https://") {
-        normalized = format!("http://{}", normalized);
-    }
-    
-    // Remove trailing slash if present
-    if normalized.ends_with('/') {
-        normalized.pop();
-    }
-    
-    normalized
+/// Split a comma-separated string into a vector of strings
+pub fn split_comma_separated(s: &str) -> Vec<String> {
+    s.split(',')
+        .map(|item| item.trim().to_string())
+        .filter(|item| !item.is_empty())
+        .collect()
+}
+
+/// Check if a string is a valid UUID
+pub fn is_valid_uuid(s: &str) -> bool {
+    Uuid::parse_str(s).is_ok()
+}
+
+/// Create a sanitized version of a string for filenames
+pub fn sanitize_filename(s: &str) -> String {
+    s.chars()
+        .map(|c| if c.is_alphanumeric() || c == '-' || c == '_' || c == '.' { c } else { '_' })
+        .collect()
 }
 
 /// Generate a random string of specified length
@@ -183,36 +174,19 @@ pub fn current_timestamp() -> u64 {
         .as_secs()
 }
 
-/// Format a UUID to a standard string without hyphens
-pub fn format_uuid_compact(id: &Uuid) -> String {
-    id.to_string().replace("-", "")
-}
-
-/// Truncate a string to max length with ellipsis
-pub fn truncate_string(s: &str, max_length: usize) -> String {
-    if s.len() <= max_length {
-        s.to_string()
-    } else {
-        format!("{}...", &s[0..max_length - 3])
+/// URL manipulation utilities
+pub fn normalize_url(url: &str) -> String {
+    let mut normalized = url.to_lowercase();
+    
+    // Ensure the URL starts with a scheme
+    if !normalized.starts_with("http://") && !normalized.starts_with("https://") {
+        normalized = format!("http://{}", normalized);
     }
-}
-
-/// Split a comma-separated string into a vector of strings
-pub fn split_comma_separated(s: &str) -> Vec<String> {
-    s.split(',')
-        .map(|item| item.trim().to_string())
-        .filter(|item| !item.is_empty())
-        .collect()
-}
-
-/// Check if a string is a valid UUID
-pub fn is_valid_uuid(s: &str) -> bool {
-    Uuid::parse_str(s).is_ok()
-}
-
-/// Create a sanitized version of a string for filenames
-pub fn sanitize_filename(s: &str) -> String {
-    s.chars()
-        .map(|c| if c.is_alphanumeric() || c == '-' || c == '_' || c == '.' { c } else { '_' })
-        .collect()
+    
+    // Remove trailing slash if present
+    if normalized.ends_with('/') {
+        normalized.pop();
+    }
+    
+    normalized
 }
