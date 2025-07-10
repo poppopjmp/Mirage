@@ -16,5 +16,5 @@ tracing-subscriber = { workspace = true }
 config = { workspace = true }
 uuid = { workspace = true }
 chrono = { workspace = true }
-sqlx = { version = "0.7", features = ["postgres", "runtime-tokio-rustls", "chrono", "uuid"] }
+sqlx = { version = "0.8", features = ["postgres", "runtime-tokio-rustls", "chrono", "uuid"] }
 semver = "1.0"

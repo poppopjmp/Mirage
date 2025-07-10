@@ -16,7 +16,7 @@ tracing-subscriber = { workspace = true }
 config = { workspace = true }
 uuid = { workspace = true }
 chrono = { workspace = true }
-sqlx = { version = "0.7", features = ["postgres", "runtime-tokio-rustls", "chrono", "uuid"] }
+sqlx = { version = "0.8", features = ["postgres", "runtime-tokio-rustls", "chrono", "uuid"] }
 mongodb = "2.6"
 elasticsearch = "9.0.0-alpha.1"
 futures = "0.3"
