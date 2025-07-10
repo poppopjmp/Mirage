@@ -49,6 +49,11 @@ members = [
 name = "mirage_workspace"
 path = "lib.rs"
 
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+
 [workspace.dependencies]
 # Core dependencies with fixed versions for all workspace members
 tokio = { version = "1.28", features = ["full"] }
