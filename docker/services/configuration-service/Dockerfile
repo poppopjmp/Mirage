@@ -21,7 +21,7 @@ RUN rm src/*.rs
 COPY ./services/configuration-service/src ./src
 
 # Build for release
-RUN rm ./target/release/deps/mirage_correlation_engine_service*
+RUN rm ./target/release/mirage-configuration-service/mirage_configuration_service*
 RUN cargo build --release
 
 # Runtime stage

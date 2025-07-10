@@ -22,7 +22,7 @@ COPY ./services/auth-service/src ./src
 COPY ./config/auth-service /app/config/auth-service
 
 # Build for release
-RUN rm ./target/release/deps/auth_service*
+RUN rm ./target/release/auth-service/auth_service*
 RUN cargo build --release
 
 # Runtime stage

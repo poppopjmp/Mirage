@@ -21,7 +21,7 @@ RUN rm src/*.rs
 COPY ./services/reporting-service/src ./src
 
 # Build for release
-RUN rm ./target/release/deps/mirage_reporting_service*
+RUN rm ./target/release/mirage-reporting/mirage_reporting*
 RUN cargo build --release
 
 # Runtime stage
@@ -33,7 +33,7 @@ RUN apt-get update && \
     rm -rf /var/lib/apt/lists/*
 
 # Copy the binary and config from builder
-COPY --from=builder /reporting-service/target/release/mirage-reporting-service /usr/local/bin/
+COPY --from=builder /reporting-service/target/release/mirage-reporting /usr/local/bin/
 
 WORKDIR /app
 ENV RUN_ENV=production
@@ -43,4 +43,4 @@ ENV RUST_LOG=info
 EXPOSE 8009
 
 # Run the binary
-CMD ["mirage-reporting-service"]
+CMD ["mirage-reporting"]
