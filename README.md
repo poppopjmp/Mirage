@@ -46,7 +46,7 @@ Mirage is built using a microservice architecture with the following components:
 
 1. Clone the repository:
    ```bash
-   git clone https://github.com/van1sh/Mirage.git
+   git clone https://github.com/poppopjmp/Mirage.git
    cd Mirage
    ```
 

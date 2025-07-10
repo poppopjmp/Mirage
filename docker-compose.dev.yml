@@ -1,0 +1,118 @@
+version: '3.8'
+
+services:
+  # Development API Gateway
+  api-gateway:
+    build:
+      context: .
+      dockerfile: ./docker/services/api-gateway/Dockerfile
+    ports:
+      - "${API_GATEWAY_PORT:-8080}:8000"
+    depends_on:
+      - auth-service
+      - discovery-service
+      - postgres
+      - redis
+    environment:
+      - RUST_LOG=debug
+      - DISCOVERY_URL=http://discovery-service:8013
+      - AUTH_SERVICE_URL=http://auth-service:8001
+    volumes:
+      - ./services/api-gateway:/app
+    command: cargo watch -x run
+
+  # Development Auth Service
+  auth-service:
+    build:
+      context: .
+      dockerfile: ./docker/services/auth-service/Dockerfile
+    ports:
+      - "${AUTH_SERVICE_PORT:-8081}:8001"
+    depends_on:
+      - postgres
+      - redis
+    environment:
+      - RUST_LOG=debug
+      - DATABASE_URL=postgres://postgres:${POSTGRES_PASSWORD:-postgres}@postgres:5432/mirage_auth
+      - REDIS_URL=redis://redis:6379
+      - JWT_SECRET=${JWT_SECRET}
+    volumes:
+      - ./services/auth-service:/app
+    command: cargo watch -x run
+
+  # Development Discovery Service
+  discovery-service:
+    build:
+      context: .
+      dockerfile: ./docker/services/discovery-service/Dockerfile
+    ports:
+      - "${DISCOVERY_PORT:-8093}:8013"
+    environment:
+      - RUST_LOG=debug
+    volumes:
+      - ./services/discovery-service:/app
+    command: cargo watch -x run
+
+  # Development Web UI
+  web-ui:
+    build:
+      context: ./services/web-ui
+      dockerfile: Dockerfile.dev
+    ports:
+      - "3000:3000"
+    depends_on:
+      - api-gateway
+    environment:
+      - REACT_APP_API_URL=http://localhost:${API_GATEWAY_PORT:-8080}
+      - NODE_ENV=development
+    volumes:
+      - ./services/web-ui:/app
+      - /app/node_modules
+    command: npm start
+
+  # PostgreSQL for development
+  postgres:
+    image: postgres:15
+    environment:
+      - POSTGRES_DB=mirage
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-postgres}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_dev_data:/var/lib/postgresql/data
+      - ./scripts/init-postgres.sh:/docker-entrypoint-initdb.d/init-postgres.sh
+
+  # Redis for development
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_dev_data:/data
+
+  # MongoDB for development
+  mongodb:
+    image: mongo:6
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_dev_data:/data/db
+
+  # Elasticsearch for development
+  elasticsearch:
+    image: elasticsearch:8.11.0
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+    ports:
+      - "9200:9200"
+    volumes:
+      - elasticsearch_dev_data:/usr/share/elasticsearch/data
+
+volumes:
+  postgres_dev_data:
+  redis_dev_data:
+  mongodb_dev_data:
+  elasticsearch_dev_data:

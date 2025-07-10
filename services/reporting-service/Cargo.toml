@@ -21,6 +21,6 @@ handlebars = "4.3"
 plotters = "0.3"
 wkhtmltopdf = "0.4"  # Replacing weasyprint which doesn't exist on crates.io
 csv = "1.2"
-xlsxwriter = { version = "0.6", features = ["serde"] }
+xlsxwriter = "0.6"
 sanitize-filename = "0.4"
 mime_guess = "2.0"
