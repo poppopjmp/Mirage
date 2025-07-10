@@ -22,7 +22,7 @@ COPY ./services/api-gateway/src ./src
 COPY ./config/api-gateway /app/config/api-gateway
 
 # Build for release
-RUN rm ./target/release/deps/mirage_api_gateway*
+RUN rm ./target/release/mirage-api-gateway/mirage_api_gateway*
 RUN cargo build --release
 
 # Runtime stage

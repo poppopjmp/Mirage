@@ -21,7 +21,7 @@ RUN rm src/*.rs
 COPY ./services/user-management-service/src ./src
 
 # Build for release
-RUN rm ./target/release/deps/mirage_user_management_service*
+RUN rm ./target/release/mirage-user-management/mirage_user_management*
 RUN cargo build --release
 
 # Runtime stage
@@ -33,7 +33,7 @@ RUN apt-get update && \
     rm -rf /var/lib/apt/lists/*
 
 # Copy the binary and config from builder
-COPY --from=builder /user-management-service/target/release/mirage-user-management-service /usr/local/bin/
+COPY --from=builder /user-management-service/target/release/mirage-user-management /usr/local/bin/
 WORKDIR /app
 ENV RUN_ENV=production
 ENV RUST_LOG=info
@@ -42,4 +42,4 @@ ENV RUST_LOG=info
 EXPOSE 8002
 
 # Run the binary
-CMD ["mirage-user-management-service"]
+CMD ["mirage-user-management"]

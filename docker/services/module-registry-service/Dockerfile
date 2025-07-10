@@ -21,7 +21,7 @@ RUN rm src/*.rs
 COPY ./services/module-registry-service/src ./src
 
 # Build for release
-RUN rm ./target/release/deps/mirage_module_registry_service*
+RUN rm ./target/release/mirage-module-registry/mirage_module_registry*
 RUN cargo build --release
 
 # Runtime stage
@@ -33,7 +33,7 @@ RUN apt-get update && \
     rm -rf /var/lib/apt/lists/*
 
 # Copy the binary and config from builder
-COPY --from=builder /module-registry-service/target/release/mirage-module-registry-service /usr/local/bin/
+COPY --from=builder /module-registry-service/target/release/mirage-module-registry /usr/local/bin/
 
 # Create modules directory
 RUN mkdir -p /app/modules
@@ -46,4 +46,4 @@ ENV RUST_LOG=info
 EXPOSE 8004
 
 # Run the binary
-CMD ["mirage-module-registry-service"]
+CMD ["mirage-module-registry"]

@@ -36,7 +36,7 @@ RUN apt-get update && \
     rm -rf /var/lib/apt/lists/*
 
 # Copy the binary and config from builder
-COPY --from=builder /visualization-service/target/release/mirage-visualization-service /usr/local/bin/
+COPY --from=builder /visualization-service/target/release/mirage-visualization /usr/local/bin/
 
 WORKDIR /app
 ENV RUN_ENV=production
@@ -46,4 +46,4 @@ ENV RUST_LOG=info
 EXPOSE 8008
 
 # Run the binary
-CMD ["mirage-visualization-service"]
+CMD ["mirage-visualization"]

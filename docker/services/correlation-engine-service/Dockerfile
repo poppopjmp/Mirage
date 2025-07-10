@@ -21,7 +21,7 @@ RUN rm src/*.rs
 COPY ./services/correlation-engine-service/src ./src
 
 # Build for release
-RUN rm ./target/release/deps/mirage_correlation_engine_service*
+RUN rm ./target/release/mirage-correlation-engine/mirage_correlation_engine*
 RUN cargo build --release
 
 # Runtime stage
@@ -33,7 +33,7 @@ RUN apt-get update && \
     rm -rf /var/lib/apt/lists/*
 
 # Copy the binary and config from builder
-COPY --from=builder /correlation-engine-service/target/release/mirage-correlation-engine-service /usr/local/bin/
+COPY --from=builder /correlation-engine-service/target/release/mirage-correlation-engine /usr/local/bin/
 
 WORKDIR /app
 ENV RUN_ENV=production
@@ -43,4 +43,4 @@ ENV RUST_LOG=info
 EXPOSE 8007
 
 # Run the binary
-CMD ["mirage-correlation-engine-service"]
+CMD ["mirage-correlation-engine"]

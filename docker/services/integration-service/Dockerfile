@@ -22,7 +22,7 @@ COPY ./services/integration-service/src ./src
 COPY ./config/integration-service /app/config/integration-service
 
 # Build for release
-RUN rm ./target/release/deps/mirage_integration_service*
+RUN rm ./target/release/integration-service/integration_service*
 RUN cargo build --release
 
 # Runtime stage
@@ -34,7 +34,7 @@ RUN apt-get update && \
     rm -rf /var/lib/apt/lists/*
 
 # Copy the binary and config from builder
-COPY --from=builder /integration-service/target/release/mirage-integration-service /usr/local/bin/
+COPY --from=builder /integration-service/target/release/integration-service /usr/local/bin/
 COPY --from=builder /app/config/integration-service /app/config
 
 # Create plugins directory
@@ -48,4 +48,4 @@ ENV RUST_LOG=info
 EXPOSE 8011
 
 # Run the binary
-CMD ["mirage-integration-service"]
+CMD ["integration-service"]

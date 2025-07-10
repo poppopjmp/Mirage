@@ -21,7 +21,7 @@ RUN rm src/*.rs
 COPY ./services/data-storage-service/src ./src
 
 # Build for release
-RUN rm ./target/release/deps/mirage_data_storage_service*
+RUN rm ./target/release/mirage-data-storage/mirage_data_storage*
 RUN cargo build --release
 
 # Runtime stage
@@ -33,7 +33,7 @@ RUN apt-get update && \
     rm -rf /var/lib/apt/lists/*
 
 # Copy the binary and config from builder
-COPY --from=builder /data-storage-service/target/release/mirage-data-storage-service /usr/local/bin/
+COPY --from=builder /data-storage-service/target/release/mirage-data-storage /usr/local/bin/
 
 
 WORKDIR /app
@@ -44,4 +44,4 @@ ENV RUST_LOG=info
 EXPOSE 8006
 
 # Run the binary
-CMD ["mirage-data-storage-service"]
+CMD ["mirage-data-storage"]

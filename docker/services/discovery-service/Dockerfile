@@ -22,7 +22,7 @@ COPY ./services/discovery-service/src ./src
 COPY ./config/discovery-service /app/config/discovery-service
 
 # Build for release
-RUN rm ./target/release/deps/mirage_discovery_service*
+RUN rm ./target/release/discovery-service/discovery_service*
 RUN cargo build --release
 
 # Runtime stage
@@ -34,7 +34,7 @@ RUN apt-get update && \
     rm -rf /var/lib/apt/lists/*
 
 # Copy the binary and config from builder
-COPY --from=builder /discovery-service/target/release/mirage-discovery-service /usr/local/bin/
+COPY --from=builder /discovery-service/target/release/discovery-service /usr/local/bin/
 COPY --from=builder /app/config/discovery-service /app/config
 
 WORKDIR /app
@@ -45,4 +45,4 @@ ENV RUST_LOG=info
 EXPOSE 8013
 
 # Run the binary
-CMD ["mirage-discovery-service"]
+CMD ["discovery-service"]

@@ -21,7 +21,7 @@ RUN rm src/*.rs
 COPY ./services/notification-service/src ./src
 
 # Build for release
-RUN rm ./target/release/deps/mirage_notification_service*
+RUN rm ./target/release/mirage-notification/mirage_notification*
 RUN cargo build --release
 
 # Runtime stage
@@ -33,7 +33,7 @@ RUN apt-get update && \
     rm -rf /var/lib/apt/lists/*
 
 # Copy the binary and config from builder
-COPY --from=builder /notification-service/target/release/mirage-notification-service /usr/local/bin/
+COPY --from=builder /notification-service/target/release/mirage-notification /usr/local/bin/
 
 WORKDIR /app
 ENV RUN_ENV=production
@@ -43,4 +43,4 @@ ENV RUST_LOG=info
 EXPOSE 8010
 
 # Run the binary
-CMD ["mirage-notification-service"]
+CMD ["mirage-notification"]

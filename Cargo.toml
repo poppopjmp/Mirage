@@ -28,26 +28,33 @@ mockall = "0.11"
 [workspace]
 members = [
     "common",
+    "services/api-gateway",
     "services/auth-service",
-    "services/user-management-service",
-    "services/module-registry-service",
-    "services/scan-orchestration-service", 
+    "services/configuration-service",
+    "services/correlation-engine-service",
     "services/data-collection-service",
     "services/data-storage-service",
-    "services/correlation-engine-service",
-    "services/visualization-service",
-    "services/reporting-service",
-    "services/notification-service",
-    "services/api-gateway",
+    "services/discovery-service",
     "services/integration-service",
-    "services/configuration-service",
-    "services/discovery-service"
+    "services/module-registry-service",
+    "services/notification-service",
+    "services/reporting-service",
+    "services/scan-orchestration-service",
+    "services/scanner-coordinator",
+    "services/user-management-service",
+    "services/visualization-service",
+    "services/web-ui"
 ]
 
 # This workspace root doesn't have any source code
 [lib]
 name = "mirage_workspace"
 path = "lib.rs"
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
 
 [workspace.dependencies]
 # Core dependencies with fixed versions for all workspace members

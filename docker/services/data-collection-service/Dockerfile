@@ -22,7 +22,7 @@ COPY ./services/data-collection-service/src ./src
 
 
 # Build for release
-RUN rm ./target/release/deps/mirage_data_collection_service*
+RUN rm ./target/release/mirage-data-collection/mirage_data_collection*
 RUN cargo build --release
 
 # Runtime stage
@@ -34,7 +34,7 @@ RUN apt-get update && \
     rm -rf /var/lib/apt/lists/*
 
 # Copy the binary and config from builder
-COPY --from=builder /data-collection-service/target/release/mirage-data-collection-service /usr/local/bin/
+COPY --from=builder /data-collection-service/target/release/mirage-data-collection /usr/local/bin/
 
 
 WORKDIR /app
@@ -45,4 +45,4 @@ ENV RUST_LOG=info
 EXPOSE 8005
 
 # Run the binary
-CMD ["mirage-data-collection-service"]
+CMD ["mirage-data-collection"]

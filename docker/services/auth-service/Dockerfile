@@ -22,7 +22,7 @@ COPY ./services/auth-service/src ./src
 COPY ./config/auth-service /app/config/auth-service
 
 # Build for release
-RUN rm ./target/release/deps/mirage_auth_service*
+RUN rm ./target/release/auth-service/auth_service*
 RUN cargo build --release
 
 # Runtime stage
@@ -34,7 +34,7 @@ RUN apt-get update && \
     rm -rf /var/lib/apt/lists/*
 
 # Copy the binary and config from builder
-COPY --from=builder /auth-service/target/release/mirage-auth-service /usr/local/bin/
+COPY --from=builder /auth-service/target/release/auth-service /usr/local/bin/
 COPY --from=builder /app/config/auth-service /app/config
 
 WORKDIR /app
@@ -45,4 +45,4 @@ ENV RUST_LOG=info
 EXPOSE 8001
 
 # Run the binary
-CMD ["mirage-auth-service"]
+CMD ["auth-service"]

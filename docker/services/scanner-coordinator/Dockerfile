@@ -22,7 +22,7 @@ COPY ./services/scanner-coordinator/src ./src
 COPY ./config/scanner-coordinator /app/config/scanner-coordinator
 
 # Build for release
-RUN rm ./target/release/deps/mirage-scanner-coordinator*
+RUN rm ./target/release/mirage-scanner-coordinator/mirage_scanner_coordinator*
 RUN cargo build --release
 
 # Runtime stage
