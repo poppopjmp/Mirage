@@ -18,5 +18,5 @@ chrono = { version = "0.4", features = ["serde"] }
 sqlx = { version = "0.8", features = ["postgres", "runtime-tokio-rustls", "chrono", "uuid"] }
 lettre = "0.10"
 handlebars = "4.3"
-reqwest = { version = "0.11", features = ["json"] }
+reqwest = { version = "0.12", features = ["json"] }
 futures = "0.3"

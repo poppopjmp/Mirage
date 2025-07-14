@@ -85,7 +85,7 @@ bcrypt = "0.14"
 rand = "0.8"
 
 # Common utility dependencies
-reqwest = { version = "0.11", features = ["json"] }
+reqwest = { version = "0.12", features = ["json"] }
 async-trait = "0.1"
 futures = "0.3"
 once_cell = "1.18"
