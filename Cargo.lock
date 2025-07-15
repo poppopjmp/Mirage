@@ -1347,7 +1347,7 @@ dependencies = [
  "config",
  "futures",
  "mirage-common",
- "redis 0.22.3",
+ "redis",
  "reqwest 0.11.27",
  "serde",
  "serde_json",
@@ -2171,7 +2171,7 @@ dependencies = [
  "httpdate",
  "itoa",
  "pin-project-lite",
- "socket2 0.5.10",
+ "socket2 0.4.10",
  "tokio",
  "tower-service",
  "tracing",
@@ -3011,7 +3011,7 @@ dependencies = [
  "futures",
  "jsonschema",
  "mirage-common",
- "redis 0.22.3",
+ "redis",
  "serde",
  "serde_json",
  "sqlx",
@@ -3056,7 +3056,7 @@ dependencies = [
  "futures",
  "mirage-common",
  "mongodb",
- "redis 0.23.3",
+ "redis",
  "reqwest 0.11.27",
  "serde",
  "serde_json",
@@ -3181,7 +3181,7 @@ dependencies = [
  "config",
  "futures",
  "mirage-common",
- "redis 0.22.3",
+ "redis",
  "reqwest 0.11.27",
  "serde",
  "serde_json",
@@ -4103,26 +4103,6 @@ checksum = "1465873a3dfdaa8ae7cb14b4383657caab0b3e8a0aa9ae8e04b044854c8dfce2"
 dependencies = [
  "crossbeam-deque",
  "crossbeam-utils",
-]
-
-[[package]]
-name = "redis"
-version = "0.22.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "aa8455fa3621f6b41c514946de66ea0531f57ca017b2e6c7cc368035ea5b46df"
-dependencies = [
- "async-trait",
- "bytes",
- "combine",
- "futures-util",
- "itoa",
- "percent-encoding",
- "pin-project-lite",
- "ryu",
- "sha1_smol",
- "tokio",
- "tokio-util",
- "url",
 ]
 
 [[package]]
@@ -6360,7 +6340,7 @@ version = "0.1.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cf221c93e13a30d793f7645a0e7762c55d169dbb0a49671918a2319d289b10bb"
 dependencies = [
- "windows-sys 0.59.0",
+ "windows-sys 0.48.0",
 ]
 
 [[package]]
