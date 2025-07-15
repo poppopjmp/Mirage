@@ -22,5 +22,5 @@ plotters = "0.3"
 wkhtmltopdf = "0.4"  # Replacing weasyprint which doesn't exist on crates.io
 csv = "1.2"
 xlsxwriter = "0.6"
-sanitize-filename = "0.4"
+sanitize-filename = "0.6"
 mime_guess = "2.0"
