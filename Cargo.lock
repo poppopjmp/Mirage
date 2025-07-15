@@ -504,7 +504,7 @@ dependencies = [
  "tokio",
  "tracing",
  "tracing-subscriber",
- "uuid 1.17.0",
+ "uuid",
 ]
 
 [[package]]
@@ -731,7 +731,7 @@ dependencies = [
  "serde_bytes",
  "serde_json",
  "time",
- "uuid 1.17.0",
+ "uuid",
 ]
 
 [[package]]
@@ -1355,7 +1355,7 @@ dependencies = [
  "tokio",
  "tracing",
  "tracing-subscriber",
- "uuid 1.17.0",
+ "uuid",
 ]
 
 [[package]]
@@ -2645,7 +2645,7 @@ dependencies = [
  "serde_json",
  "time",
  "url",
- "uuid 1.17.0",
+ "uuid",
 ]
 
 [[package]]
@@ -2973,7 +2973,7 @@ dependencies = [
  "tokio",
  "tracing",
  "tracing-subscriber",
- "uuid 1.17.0",
+ "uuid",
 ]
 
 [[package]]
@@ -2997,7 +2997,7 @@ dependencies = [
  "tokio-test",
  "tracing",
  "url",
- "uuid 1.17.0",
+ "uuid",
 ]
 
 [[package]]
@@ -3019,7 +3019,7 @@ dependencies = [
  "tokio",
  "tracing",
  "tracing-subscriber",
- "uuid 1.17.0",
+ "uuid",
 ]
 
 [[package]]
@@ -3042,7 +3042,7 @@ dependencies = [
  "tokio",
  "tracing",
  "tracing-subscriber",
- "uuid 1.17.0",
+ "uuid",
 ]
 
 [[package]]
@@ -3066,7 +3066,7 @@ dependencies = [
  "tracing",
  "tracing-subscriber",
  "url",
- "uuid 1.17.0",
+ "uuid",
 ]
 
 [[package]]
@@ -3086,7 +3086,7 @@ dependencies = [
  "tokio",
  "tracing",
  "tracing-subscriber",
- "uuid 1.17.0",
+ "uuid",
 ]
 
 [[package]]
@@ -3104,7 +3104,7 @@ dependencies = [
  "tokio",
  "tracing",
  "tracing-subscriber",
- "uuid 1.17.0",
+ "uuid",
 ]
 
 [[package]]
@@ -3125,7 +3125,7 @@ dependencies = [
  "tokio",
  "tracing",
  "tracing-subscriber",
- "uuid 1.17.0",
+ "uuid",
 ]
 
 [[package]]
@@ -3148,7 +3148,7 @@ dependencies = [
  "tokio",
  "tracing",
  "tracing-subscriber",
- "uuid 1.17.0",
+ "uuid",
  "wkhtmltopdf",
  "xlsxwriter",
 ]
@@ -3168,7 +3168,7 @@ dependencies = [
  "tokio",
  "tracing",
  "tracing-subscriber",
- "uuid 1.17.0",
+ "uuid",
 ]
 
 [[package]]
@@ -3190,7 +3190,7 @@ dependencies = [
  "tokio",
  "tracing",
  "tracing-subscriber",
- "uuid 1.17.0",
+ "uuid",
 ]
 
 [[package]]
@@ -3207,7 +3207,7 @@ dependencies = [
  "tokio",
  "tracing",
  "tracing-subscriber",
- "uuid 1.17.0",
+ "uuid",
 ]
 
 [[package]]
@@ -3229,7 +3229,7 @@ dependencies = [
  "tokio",
  "tracing",
  "tracing-subscriber",
- "uuid 1.17.0",
+ "uuid",
 ]
 
 [[package]]
@@ -3302,7 +3302,7 @@ dependencies = [
  "trust-dns-proto",
  "trust-dns-resolver",
  "typed-builder",
- "uuid 1.17.0",
+ "uuid",
  "webpki-roots 0.25.4",
 ]
 
@@ -5123,7 +5123,7 @@ dependencies = [
  "tokio-stream",
  "tracing",
  "url",
- "uuid 1.17.0",
+ "uuid",
  "webpki-roots 0.26.11",
 ]
 
@@ -5206,7 +5206,7 @@ dependencies = [
  "stringprep",
  "thiserror 1.0.69",
  "tracing",
- "uuid 1.17.0",
+ "uuid",
  "whoami",
 ]
 
@@ -5246,7 +5246,7 @@ dependencies = [
  "stringprep",
  "thiserror 1.0.69",
  "tracing",
- "uuid 1.17.0",
+ "uuid",
  "whoami",
 ]
 
@@ -5272,7 +5272,7 @@ dependencies = [
  "sqlx-core",
  "tracing",
  "url",
- "uuid 1.17.0",
+ "uuid",
 ]
 
 [[package]]
@@ -6071,15 +6071,6 @@ checksum = "06abde3611657adf66d383f00b093d7faecc7fa57071cce2578660c9f1010821"
 
 [[package]]
 name = "uuid"
-version = "0.8.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bc5cf98d8186244414c848017f0e2676b3fcb46807f6668a97dfe67359a3c4b7"
-dependencies = [
- "getrandom 0.2.16",
-]
-
-[[package]]
-name = "uuid"
 version = "1.17.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3cf4199d1e5d15ddd86a694e4d0dffa9c323ce759fea589f00fef9d81cc1931d"
@@ -6249,7 +6240,7 @@ dependencies = [
  "env_logger 0.9.3",
  "log",
  "serde",
- "uuid 0.8.2",
+ "uuid",
 ]
 
 [[package]]
